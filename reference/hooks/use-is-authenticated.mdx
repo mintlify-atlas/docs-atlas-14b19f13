@@ -1,0 +1,86 @@
+---
+title: "useIsAuthenticated — React Auth Kit hook"
+description: "useIsAuthenticated returns a function to check token validity. Call isAuthenticated() to get a boolean — auto signs out and redirects if the token is expired."
+---
+
+`useIsAuthenticated` returns a function that you call to determine whether the current auth token is present and still valid (i.e. its expiry date is in the future). If the token has expired the hook also triggers an automatic sign-out and — when a router plugin and `fallbackPath` are configured — navigates the user to the login page.
+
+## Import
+
+```ts
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+```
+
+## TypeScript signature
+
+```ts
+function useIsAuthenticated(): () => boolean
+```
+
+## Return value
+
+Returns a **function** `() => boolean`. You must **call** that function to get the boolean result — do not use the hook return value itself as a boolean.
+
+| Return value | Meaning |
+|---|---|
+| `true` | A valid, unexpired token exists in the store |
+| `false` | No token exists, or the existing token has expired |
+
+When the token is expired and `false` is returned:
+1. The auth state is cleared from the store (equivalent to calling sign-out).
+2. If a `router` plugin, `fallbackPath`, and the user is not already on `fallbackPath`, navigation to `fallbackPath` is triggered automatically.
+
+## Usage
+
+<CodeGroup>
+
+```tsx Conditional render
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+
+function Dashboard() {
+  const isAuthenticated = useIsAuthenticated()
+
+  if (!isAuthenticated()) {
+    return <p>Please log in to view this page.</p>
+  }
+
+  return <p>Welcome back!</p>
+}
+```
+
+```tsx Guard pattern in a layout component
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+
+function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useIsAuthenticated()
+
+  return isAuthenticated() ? <>{children}</> : null
+}
+```
+
+```tsx Combining with useAuthUser
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser'
+
+function Profile() {
+  const isAuthenticated = useIsAuthenticated()
+  const authUser = useAuthUser()
+
+  if (!isAuthenticated()) {
+    return <p>Not authenticated.</p>
+  }
+
+  const user = authUser()
+  return <p>Hello, {user?.name}</p>
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Always invoke the returned function — `isAuthenticated()` — rather than using the hook's return value directly as a boolean. The hook returns a function, not a boolean.
+</Warning>
+
+<Note>
+  The automatic redirect to `fallbackPath` only fires when all three conditions are true: a `router` plugin is configured in `AuthProvider`, `fallbackPath` is set, and the current path is not already `fallbackPath`. This prevents redirect loops.
+</Note>

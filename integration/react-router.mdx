@@ -1,0 +1,235 @@
+---
+title: "Integrate React Auth Kit with React Router"
+description: "Connect React Auth Kit to React Router v6 or v7 using ReactRouterPlugin, AuthProvider, and RequireAuth for protected routes in your React app."
+---
+
+React Auth Kit integrates with React Router through the `@auth-kit/react-router` package, which provides a router plugin and a `RequireAuth` component for per-route authentication guards. The plugin adapts React Router's `useNavigate` and `useLocation` hooks so React Auth Kit can handle redirects on session expiry without being coupled to any specific router.
+
+<Steps>
+
+<Step title="Install the packages">
+
+Install the core library and the React Router plugin together.
+
+<CodeGroup>
+
+```bash npm
+npm install react-auth-kit @auth-kit/react-router
+```
+
+```bash yarn
+yarn add react-auth-kit @auth-kit/react-router
+```
+
+```bash pnpm
+pnpm add react-auth-kit @auth-kit/react-router
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Create the auth store">
+
+Create your store at module scope, outside any component. Pass it to `AuthProvider` in the next step.
+
+<Tabs>
+
+<Tab title="TypeScript">
+
+```ts src/store.ts
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+export default store;
+```
+
+</Tab>
+
+<Tab title="JavaScript">
+
+```js src/store.js
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+export default store;
+```
+
+</Tab>
+
+</Tabs>
+
+</Step>
+
+<Step title="Wrap your app with AuthProvider and BrowserRouter">
+
+`AuthProvider` must wrap `BrowserRouter`, not the other way around. The `ReactRouterPlugin` adapter is passed to `AuthProvider` via the `router` prop so it can call `useNavigate` and `useLocation` internally.
+
+<Tabs>
+
+<Tab title="TypeScript">
+
+```tsx src/App.tsx
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import ReactRouterPlugin from '@auth-kit/react-router/route';
+import RequireAuth from '@auth-kit/react-router/RequireAuth';
+import store from './store';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+
+function App() {
+  return (
+    <AuthProvider
+      store={store}
+      router={ReactRouterPlugin}
+      fallbackPath="/login"
+    >
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+<Tab title="JavaScript">
+
+```jsx src/App.jsx
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import ReactRouterPlugin from '@auth-kit/react-router/route';
+import RequireAuth from '@auth-kit/react-router/RequireAuth';
+import store from './store';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+
+function App() {
+  return (
+    <AuthProvider
+      store={store}
+      router={ReactRouterPlugin}
+      fallbackPath="/login"
+    >
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+</Tabs>
+
+<Warning>
+  `AuthProvider` must be the **outer** wrapper. Placing `BrowserRouter` outside `AuthProvider` causes `RequireAuth` to throw an error because the router context is not available when `AuthProvider` initializes.
+</Warning>
+
+</Step>
+
+<Step title="Protect routes with RequireAuth">
+
+`RequireAuth` is a component wrapper that checks authentication on every render. If the user is not authenticated, it renders a `<Navigate>` to the `fallbackPath` you set on `AuthProvider`.
+
+```tsx
+import RequireAuth from '@auth-kit/react-router/RequireAuth';
+
+// Wrap any element that should be behind a login wall
+<Route
+  path="/settings"
+  element={
+    <RequireAuth>
+      <Settings />
+    </RequireAuth>
+  }
+/>
+```
+
+`RequireAuth` reads `fallbackPath` from the `AuthProvider` context automatically. You can also pass it directly on the component as a one-off override, though this prop is deprecated and will be removed in a future release.
+
+</Step>
+
+</Steps>
+
+## How the React Router plugin works
+
+`ReactRouterPlugin` is an `IRouter` adapter that bridges React Auth Kit's internal navigation calls to React Router's API:
+
+| Method | Implementation | Purpose |
+|---|---|---|
+| `navigate` | `redirect(to)` from `react-router` | Non-hook redirect (used outside components) |
+| `useNavigate` | Wraps `useNavigate()` from `react-router` | Returns a navigation function for use in hooks |
+| `usePath` | Wraps `useLocation()` | Returns a function that reads the current pathname |
+
+Without this plugin, `AuthProvider` cannot redirect users to the login page when their session expires.
+
+## RequireAuth vs no-plugin setup
+
+If you use React Auth Kit without React Router (plain React with no routing library), you can omit the `router` prop and `RequireAuth` component entirely. Auth state hooks still work; only the automatic redirect on expiry is unavailable.
+
+| Scenario | `router` prop | Use `RequireAuth` |
+|---|---|---|
+| React Router v6 / v7 | `ReactRouterPlugin` | Yes |
+| Next.js App Router | `NextPlugin` | Use `NextAuth` instead |
+| No router (plain React) | Omit | Not applicable |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Private routes deep dive" icon="lock" href="/guides/private-routes-react-router">
+    Nested routes, layout-based guards, and redirect-back patterns
+  </Card>
+  <Card title="Sign in users" icon="right-to-bracket" href="/guides/sign-in">
+    Store a JWT and user state after your backend validates credentials
+  </Card>
+  <Card title="Token refresh" icon="arrows-rotate" href="/guides/refresh-token">
+    Configure automatic token refresh so sessions stay alive
+  </Card>
+  <Card title="Next.js integration" icon="n" href="/integration/nextjs">
+    Set up React Auth Kit in a Next.js App Router project
+  </Card>
+</CardGroup>

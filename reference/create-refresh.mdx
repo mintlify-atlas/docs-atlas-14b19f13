@@ -1,0 +1,146 @@
+---
+title: "createRefresh — React Auth Kit token refresh"
+description: "createRefresh builds the refresh config for React Auth Kit. Set a polling interval in minutes, an async refresh callback, and an optional loading component."
+---
+
+`createRefresh` builds the refresh configuration object that you attach to `createAuthStore`. At runtime it validates your input and passes the configuration to the internal refresh engine, which calls your `refreshApiCallback` on the defined interval. When the callback returns `isSuccess: false` the user is automatically signed out.
+
+## Import
+
+```ts
+import createRefresh from 'react-auth-kit/createRefresh'
+```
+
+## TypeScript signature
+
+```ts
+function createRefresh<T>(
+  param: createRefreshAttribute<T>,
+): createRefreshAttribute<T>
+```
+
+`T` is the shape of your user state object — the same generic you use in `createAuthStore`.
+
+## Parameters
+
+<ParamField path="param" type="createRefreshAttribute<T>" required>
+  A single configuration object with the following fields.
+
+  <Expandable title="createRefreshAttribute fields">
+
+    <ParamField path="param.interval" type="number" required>
+      How often (in **minutes**) the `refreshApiCallback` is invoked. Must be a non-negative number — passing a negative value throws `AuthKitConfigError`.
+    </ParamField>
+
+    <ParamField path="param.refreshApiCallback" type="refreshTokenCallback<T>" required>
+      An async function called on every refresh tick. Receives an object with the current `authToken`, `refreshToken`, and `authUserState`, and must return a `Promise<RefreshTokenActionResponse<T>>`.
+
+      **Callback parameter shape:**
+      ```ts
+      {
+        authToken?: string       // current access token
+        refreshToken?: string    // current refresh token
+        authUserState: T | null  // current user state
+      }
+      ```
+
+      **Return type — success:**
+      ```ts
+      {
+        isSuccess: true
+        newAuthToken: string         // required on success
+        newAuthTokenType?: string    // defaults to previous type
+        newRefreshToken?: string     // omit to keep existing refresh token
+        newAuthUserState?: T | null  // omit to keep existing user state
+      }
+      ```
+
+      **Return type — failure:**
+      ```ts
+      {
+        isSuccess: false  // user is signed out immediately
+      }
+      ```
+    </ParamField>
+
+    <ParamField path="param.initialRefreshComponent" type="React.ReactNode">
+      A React node rendered **once** when the application mounts and the first refresh attempt is in progress. Use this to show a full-page loading spinner before your application UI appears. After the first refresh completes (success or failure) this component is replaced by your normal children.
+    </ParamField>
+
+  </Expandable>
+</ParamField>
+
+## Return value
+
+Returns the same `createRefreshAttribute<T>` object you passed in, after validating the `interval`. Pass this value to the `refresh` field of `createAuthStore`.
+
+## Usage
+
+<CodeGroup>
+
+```js Basic refresh (JavaScript)
+import createRefresh from 'react-auth-kit/createRefresh'
+
+const refresh = createRefresh({
+  interval: 10, // call refreshApiCallback every 10 minutes
+  refreshApiCallback: async ({ authToken, refreshToken, authUserState }) => {
+    try {
+      const response = await fetch('/api/token/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ refreshToken }),
+      })
+      const data = await response.json()
+      return {
+        isSuccess: true,
+        newAuthToken: data.accessToken,
+        newRefreshToken: data.refreshToken,
+      }
+    } catch (error) {
+      console.error('Refresh failed', error)
+      return { isSuccess: false }
+    }
+  },
+})
+```
+
+```ts With typed user state and loading UI (TypeScript)
+import createRefresh from 'react-auth-kit/createRefresh'
+import Spinner from './Spinner'
+
+interface IUser {
+  name: string
+  uuid: string
+}
+
+const refresh = createRefresh<IUser>({
+  interval: 15,
+  refreshApiCallback: async ({ authToken, authUserState }) => {
+    try {
+      const res = await fetch('/api/token/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      const data = await res.json()
+      return {
+        isSuccess: true,
+        newAuthToken: data.accessToken,
+        newAuthUserState: { name: data.name, uuid: data.uuid },
+      }
+    } catch {
+      return { isSuccess: false }
+    }
+  },
+  initialRefreshComponent: <Spinner />,
+})
+```
+
+</CodeGroup>
+
+<Note>
+  `createRefresh` does not start any timers itself. The timer is started by `AuthProvider` when it detects a `refresh` object in the store. Ensure you pass the return value to the `refresh` field of `createAuthStore`.
+</Note>
+
+<Warning>
+  Throws `AuthKitConfigError` if `interval` is a negative number.
+</Warning>

@@ -1,0 +1,171 @@
+---
+title: "Private Routes with React Router"
+description: "Protect React Router routes so only authenticated users can access them. Use RequireAuth to wrap individual routes or AuthOutlet to guard a whole nested group."
+---
+
+React Auth Kit provides two components for guarding routes in React Router v6: `RequireAuth` for wrapping individual routes, and `AuthOutlet` for protecting a group of routes at once using nested routing. Both redirect unauthenticated users to a configurable fallback path.
+
+<Warning>
+  `RequireAuth` and `AuthOutlet` require React Router v6 or later. If you are using React Router v5, use React Auth Kit v1.x instead.
+</Warning>
+
+## Installation
+
+Install the React Router plugin alongside the core library:
+
+```bash
+npm install --save @auth-kit/react-router
+```
+
+## Configure the plugin
+
+Pass the `ReactRouterPlugin` to `AuthProvider` so React Auth Kit can integrate with React Router's navigation system. Set `fallbackPath` here to avoid repeating it on every protected route.
+
+```tsx title="main.tsx"
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import ReactRouterPlugin from '@auth-kit/react-router/route';
+import createAuthStore from 'react-auth-kit/createAuthStore';
+import App from './App';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <BrowserRouter>
+    <AuthProvider store={store} fallbackPath="/login" router={ReactRouterPlugin}>
+      <App />
+    </AuthProvider>
+  </BrowserRouter>
+);
+```
+
+<Note>
+  Setting `fallbackPath` on `AuthProvider` means you do not need to pass it to `RequireAuth` or `AuthOutlet` on every route. It is still accepted per-component for backwards compatibility, but the `AuthProvider` approach is preferred.
+</Note>
+
+## Two approaches to private routes
+
+<Tabs>
+  <Tab title="AuthOutlet — group of routes">
+    `AuthOutlet` acts as a parent route element. Any child routes nested inside it are automatically protected. This is the most concise approach when you have multiple private routes.
+
+    ```tsx title="App.tsx"
+    import React from 'react';
+    import { Routes, Route } from 'react-router';
+    import AuthOutlet from '@auth-kit/react-router/AuthOutlet';
+    import Home from './pages/Home';
+    import Login from './pages/Login';
+    import Dashboard from './pages/Dashboard';
+    import Settings from './pages/Settings';
+
+    export default function App() {
+      return (
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+
+          {/* All routes nested here require authentication */}
+          <Route element={<AuthOutlet />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      );
+    }
+    ```
+
+    When a user visits `/dashboard` or `/settings` without being authenticated, `AuthOutlet` redirects them to the `fallbackPath` configured on `AuthProvider`.
+  </Tab>
+  <Tab title="RequireAuth — per-route wrapping">
+    `RequireAuth` wraps a single route's element. Use this when you need fine-grained control, such as protecting only specific routes while leaving others in the same group public.
+
+    ```tsx title="App.tsx"
+    import React from 'react';
+    import { Routes, Route } from 'react-router';
+    import RequireAuth from '@auth-kit/react-router/RequireAuth';
+    import Home from './pages/Home';
+    import Login from './pages/Login';
+    import Dashboard from './pages/Dashboard';
+    import Settings from './pages/Settings';
+
+    export default function App() {
+      return (
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+
+          {/* Each private route is wrapped individually */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <Settings />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## The `fallbackPath` prop
+
+Both `RequireAuth` and `AuthOutlet` accept a `fallbackPath` prop directly on the component. This is **deprecated** — prefer setting `fallbackPath` once on `AuthProvider` instead.
+
+<Warning>
+  If no `fallbackPath` is found on either the component or `AuthProvider`, React Auth Kit throws an `AuthKitConfigError` at runtime. Always set `fallbackPath` in at least one place.
+</Warning>
+
+```tsx
+// Deprecated — use AuthProvider fallbackPath instead
+<RequireAuth fallbackPath="/login">
+  <Dashboard />
+</RequireAuth>
+
+// Also deprecated on AuthOutlet
+<Route element={<AuthOutlet fallbackPath="/login" />}>
+  <Route path="/dashboard" element={<Dashboard />} />
+</Route>
+```
+
+## API reference
+
+### `RequireAuth`
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | Yes | The component to render when the user is authenticated |
+| `fallbackPath` | `string` | No | **Deprecated.** Path to redirect to when unauthenticated. Use `AuthProvider` `fallbackPath` instead |
+
+### `AuthOutlet`
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `fallbackPath` | `string` | No | **Deprecated.** Path to redirect to when unauthenticated. Use `AuthProvider` `fallbackPath` instead |
+
+<CardGroup cols={2}>
+  <Card title="RequireAuth reference" icon="lock" href="/reference/react-router/require-auth">
+    Full API reference for the RequireAuth component
+  </Card>
+  <Card title="AuthOutlet reference" icon="shield" href="/reference/react-router/auth-outlet">
+    Full API reference for the AuthOutlet component
+  </Card>
+</CardGroup>

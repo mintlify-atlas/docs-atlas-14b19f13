@@ -1,0 +1,85 @@
+---
+title: "useSignOut — React Auth Kit hook"
+description: "React hook that returns a sign-out function. Clears all auth tokens and user state from the store and optionally navigates the user to a specified path."
+---
+
+`useSignOut` returns a zero-argument function that clears the authentication state — tokens, refresh token, and user state — from the React Auth Kit store. When navigation is configured, the user is redirected after the state is cleared.
+
+## Import
+
+```ts
+import useSignOut from 'react-auth-kit/hooks/useSignOut'
+```
+
+## TypeScript signature
+
+```ts
+function useSignOut(navigateTo?: string): () => void
+```
+
+## Parameters
+
+<ParamField path="navigateTo" type="string">
+  The path to redirect to after the user is signed out. Navigation only occurs when a `router` plugin was provided to `AuthProvider`. If omitted, the user stays on the current page after sign-out.
+</ParamField>
+
+## Return value
+
+Returns a `() => void` function. Call it (typically in a button's `onClick` or after a confirmation) to execute the sign-out. The path to redirect is bound at the time `useSignOut` is called, not when the returned function is invoked.
+
+## Usage
+
+<CodeGroup>
+
+```tsx Without redirect
+import useSignOut from 'react-auth-kit/hooks/useSignOut'
+
+function NavBar() {
+  const signOut = useSignOut()
+
+  return (
+    <button onClick={() => signOut()}>
+      Sign Out
+    </button>
+  )
+}
+```
+
+```tsx With redirect to login page
+import useSignOut from 'react-auth-kit/hooks/useSignOut'
+
+function NavBar() {
+  const signOut = useSignOut('/login')
+
+  return (
+    <button onClick={() => signOut()}>
+      Sign Out
+    </button>
+  )
+}
+```
+
+```tsx After an async action
+import useSignOut from 'react-auth-kit/hooks/useSignOut'
+
+function AccountSettings() {
+  const signOut = useSignOut('/login')
+
+  async function handleDeleteAccount() {
+    await fetch('/api/account', { method: 'DELETE' })
+    signOut()
+  }
+
+  return (
+    <button onClick={handleDeleteAccount}>
+      Delete account and sign out
+    </button>
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  `useSignOut` removes both the access token and the refresh token (if any) from storage. Subsequent calls to `useIsAuthenticated()` will return `false` immediately.
+</Note>

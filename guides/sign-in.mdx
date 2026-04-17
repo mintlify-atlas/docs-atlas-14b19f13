@@ -1,0 +1,230 @@
+---
+title: "Sign in users with useSignIn"
+description: "Learn how to authenticate users in React by calling the useSignIn hook after a successful login API response to store the JWT and user state."
+---
+
+The `useSignIn` hook is the entry point for establishing an authenticated session. After your backend validates credentials and returns a token, you call the function returned by this hook to write the auth state into React Auth Kit's store — where it is persisted (cookie or localStorage) and made available to every hook in your component tree.
+
+## Import
+
+```javascript
+import useSignIn from 'react-auth-kit/hooks/useSignIn';
+```
+
+## Signature
+
+```typescript
+function useSignIn<T>(): (signInConfig: signInFunctionParams<T>) => boolean | never
+```
+
+The hook returns a **function**. Call that function with a config object to sign the user in. It returns `true` on success and throws `AuthKitError` on misconfiguration.
+
+## Parameters
+
+The config object passed to the returned function has the following shape (`signInFunctionParams<T>`):
+
+<ParamField body="auth" type="object" required>
+  The access token and its type.
+
+  <Expandable title="auth properties">
+    <ParamField body="auth.token" type="string" required>
+      The JWT access token returned by your backend.
+    </ParamField>
+    <ParamField body="auth.type" type="string" default="Bearer">
+      The token prefix used in the `Authorization` header, for example `"Bearer"`. Defaults to `"Bearer"` when omitted.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="userState" type="T">
+  Arbitrary user data to store alongside the token. Accessible later via `useAuthUser`. Use the generic type parameter to get full TypeScript inference.
+</ParamField>
+
+<ParamField body="refresh" type="string | null">
+  The refresh token string. Only include this field when your store was created with a `createRefresh` config. Omitting it when refresh is configured, or including it when refresh is not configured, throws `AuthKitError`.
+</ParamField>
+
+<ParamField body="navigateTo" type="string">
+  Optional path to navigate to after a successful sign-in. Requires a router plugin (`@auth-kit/react-router` or `@auth-kit/next`) to be configured in your store.
+</ParamField>
+
+## Examples
+
+### Basic sign-in (no refresh token)
+
+Use this when your store does **not** include a `createRefresh` config.
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```jsx
+    import useSignIn from 'react-auth-kit/hooks/useSignIn';
+    import axios from 'axios';
+
+    const LoginForm = () => {
+      const signIn = useSignIn();
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        const res = await axios.post('/api/login', {
+          email: e.target.email.value,
+          password: e.target.password.value,
+        });
+
+        if (res.status === 200) {
+          signIn({
+            auth: {
+              token: res.data.token,
+              type: 'Bearer',
+            },
+            userState: {
+              name: res.data.name,
+              uid: res.data.uid,
+            },
+          });
+        }
+      };
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <input name="email" type="email" />
+          <input name="password" type="password" />
+          <button type="submit">Log in</button>
+        </form>
+      );
+    };
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```tsx
+    import useSignIn from 'react-auth-kit/hooks/useSignIn';
+    import axios from 'axios';
+
+    interface IUserData {
+      name: string;
+      uid: number;
+    }
+
+    const LoginForm = () => {
+      const signIn = useSignIn<IUserData>();
+
+      const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const res = await axios.post('/api/login', {
+          email: (form.elements.namedItem('email') as HTMLInputElement).value,
+          password: (form.elements.namedItem('password') as HTMLInputElement).value,
+        });
+
+        if (res.status === 200) {
+          signIn({
+            auth: {
+              token: res.data.token,
+              type: 'Bearer',
+            },
+            userState: {
+              name: res.data.name,
+              uid: res.data.uid,
+            },
+          });
+        }
+      };
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <input name="email" type="email" />
+          <input name="password" type="password" />
+          <button type="submit">Log in</button>
+        </form>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Sign-in with a refresh token
+
+Include the `refresh` field when your store was created with `createRefresh`.
+
+```jsx
+import useSignIn from 'react-auth-kit/hooks/useSignIn';
+import axios from 'axios';
+
+const LoginForm = () => {
+  const signIn = useSignIn();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await axios.post('/api/login', {
+      email: e.target.email.value,
+      password: e.target.password.value,
+    });
+
+    if (res.status === 200) {
+      signIn({
+        auth: {
+          token: res.data.token,
+          type: 'Bearer',
+        },
+        refresh: res.data.refreshToken,
+        userState: { name: res.data.name, uid: res.data.uid },
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" />
+      <input name="password" type="password" />
+      <button type="submit">Log in</button>
+    </form>
+  );
+};
+```
+
+### Redirect after sign-in
+
+Pass `navigateTo` to automatically redirect the user after a successful sign-in. This requires a router plugin to be configured in `createAuthStore`.
+
+```jsx
+signIn({
+  auth: {
+    token: res.data.token,
+    type: 'Bearer',
+  },
+  userState: { name: res.data.name, uid: res.data.uid },
+  navigateTo: '/dashboard',
+});
+```
+
+## Error handling
+
+`useSignIn` throws `AuthKitError` in two cases:
+
+<Warning>
+  If your store uses `createRefresh` but you call `signIn` **without** a `refresh` field, React Auth Kit throws:
+
+  ```
+  This application is using refresh token feature.
+  So please include `refresh` param in the parameters
+  ```
+</Warning>
+
+<Warning>
+  If your store does **not** use `createRefresh` but you include a `refresh` field, React Auth Kit throws:
+
+  ```
+  This application is not using refresh token feature.
+  So please remove the `refresh` param in the parameters.
+  ```
+</Warning>
+
+Both errors indicate a mismatch between your store configuration and the arguments passed to `signIn`. Align them to resolve the issue.
+
+<CardGroup cols={2}>
+  <Card title="Refresh token setup" icon="arrows-rotate" href="/guides/refresh-token">
+    Configure automatic token refresh with createRefresh
+  </Card>
+  <Card title="Auth status" icon="shield-check" href="/guides/auth-status">
+    Check if the current user is authenticated
+  </Card>
+</CardGroup>

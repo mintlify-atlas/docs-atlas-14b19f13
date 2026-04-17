@@ -1,0 +1,160 @@
+---
+title: "Cookie Storage for Auth Tokens"
+description: "Store JWT authentication tokens in browser cookies with React Auth Kit, including security settings for domain, SameSite, and HTTPS enforcement."
+---
+
+Cookie storage is the recommended default for most React Auth Kit applications. Cookies can be scoped to a domain, persist across page refreshes and browser sessions, and support security attributes that reduce exposure to certain attack vectors. React Auth Kit uses the [`js-cookie`](https://github.com/js-cookie/js-cookie) library under the hood to manage cookie reads, writes, and expiry.
+
+## Basic setup
+
+Pass `'cookie'` as the first argument to `createAuthStore` and provide your cookie options:
+
+```ts title="store.ts"
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+```
+
+Then pass the store to `AuthProvider`:
+
+```tsx title="main.tsx"
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import store from './store';
+
+export default function App() {
+  return (
+    <AuthProvider store={store}>
+      {/* your app */}
+    </AuthProvider>
+  );
+}
+```
+
+## Configuration options
+
+All cookie options are passed as the second argument to `createAuthStore`.
+
+### `authName`
+
+**Type:** `string` | **Default:** `'_auth'`
+
+The base name for the cookies React Auth Kit creates. All related cookies (access token, refresh token, user state) are prefixed with this name. For example, `authName: '_auth'` creates cookies named `_auth`, `_auth_refresh`, and `_auth_state`.
+
+```ts
+createAuthStore('cookie', {
+  authName: '_myapp_auth',
+});
+```
+
+### `cookieDomain`
+
+**Type:** `string` | **Default:** `window.location.hostname`
+
+The domain to which the cookie is scoped. Browsers only send the cookie to requests matching this domain.
+
+```ts
+createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname, // e.g. "app.example.com"
+});
+```
+
+<Tip>
+  To share auth cookies across subdomains (for example between `app.example.com` and `api.example.com`), set `cookieDomain` to the root domain: `'.example.com'` (with a leading dot).
+</Tip>
+
+### `cookieSecure`
+
+**Type:** `boolean` | **Default:** `window.location.protocol === 'https:'`
+
+When `true`, the browser only sends the cookie over HTTPS connections. This prevents the token from being transmitted in plaintext over HTTP.
+
+```ts
+createAuthStore('cookie', {
+  authName: '_auth',
+  cookieSecure: window.location.protocol === 'https:',
+});
+```
+
+<Warning>
+  Never set `cookieSecure: false` in production. Only disable it in local development environments where HTTPS is unavailable.
+</Warning>
+
+### `cookiePath`
+
+**Type:** `string` | **Default:** `'/'`
+
+The URL path to which the cookie is scoped. The default `'/'` makes the cookie available to the entire site.
+
+```ts
+createAuthStore('cookie', {
+  authName: '_auth',
+  cookiePath: '/',
+});
+```
+
+### `cookieSameSite`
+
+**Type:** `'strict' | 'Strict' | 'lax' | 'Lax' | 'none' | 'None'` | **Default:** `'none'`
+
+Controls when the browser sends the cookie in cross-site requests.
+
+| Value | Behavior |
+|---|---|
+| `'strict'` | Cookie is only sent in first-party (same-site) requests. Strongest protection against CSRF, but breaks OAuth redirects and cross-origin flows |
+| `'lax'` | Cookie is sent in first-party requests and on top-level cross-site navigations (e.g. clicking a link). A good balance for most apps |
+| `'none'` | Cookie is sent in all cross-site requests. Must be combined with `cookieSecure: true` or the browser will reject it |
+
+```ts
+createAuthStore('cookie', {
+  authName: '_auth',
+  cookieSameSite: 'lax',
+});
+```
+
+<Warning>
+  Setting `cookieSameSite: 'none'` requires `cookieSecure: true`. Browsers reject `SameSite=None` cookies that are not also marked `Secure`.
+</Warning>
+
+## Full example with automatic detection
+
+This pattern is common in production apps — it detects the current hostname and protocol at runtime so the same code works across development, staging, and production environments:
+
+```ts title="store.ts"
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+  cookiePath: '/',
+  cookieSameSite: 'lax',
+});
+
+export default store;
+```
+
+## Trade-offs
+
+Cookies are a good default, but they come with considerations:
+
+| Consideration | Details |
+|---|---|
+| Cross-subdomain sharing | Supported — set `cookieDomain` to the root domain with a leading dot |
+| Survives page refresh | Yes — cookies persist across full page reloads |
+| SSR compatibility | Cookies can be read on the server (React Auth Kit itself is client-only, but the cookie values are accessible via `req.cookies` in server code) |
+| CSRF exposure | Cookies are automatically sent with requests, making CSRF possible without other mitigations — use `cookieSameSite: 'strict'` or `'lax'` and CSRF tokens where appropriate |
+| XSS exposure | Cookies are accessible via JavaScript by default; consider server-set `HttpOnly` cookies for maximum protection (not currently managed by React Auth Kit) |
+
+<CardGroup cols={2}>
+  <Card title="localStorage storage" icon="hard-drive" href="/guides/localstorage">
+    Compare with localStorage-based token storage
+  </Card>
+  <Card title="createAuthStore reference" icon="code" href="/reference/create-auth-store">
+    Full API reference for createAuthStore
+  </Card>
+</CardGroup>

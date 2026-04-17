@@ -1,0 +1,195 @@
+---
+title: "NextAuth — Next.js private route component"
+description: "NextAuth component and useNextAuth hook from @auth-kit/next. Both run client-side to protect Next.js App Router layouts and redirect unauthenticated users."
+---
+
+`@auth-kit/next` provides two complementary APIs for protecting pages in the [Next.js App Router](https://nextjs.org/docs/app): the `NextAuth` component and the `useNextAuth` hook. Both work client-side only — because JWT state is stored on the client, server-side rendering is not available on protected routes.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @auth-kit/next
+```
+
+```bash yarn
+yarn add @auth-kit/next
+```
+
+```bash pnpm
+pnpm add @auth-kit/next
+```
+
+</CodeGroup>
+
+## Router plugin
+
+To use `@auth-kit/next` with `AuthProvider`, pass the `NextPlugin` to the `router` prop. This wires up Next.js navigation so that `AuthProvider` can redirect unauthenticated users automatically.
+
+```tsx AuthProvider setup
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import createAuthStore from 'react-auth-kit/createAuthStore';
+import NextPlugin from '@auth-kit/next/route';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const store = createAuthStore('cookie', {
+    authName: '_auth',
+    cookieDomain: window.location.hostname,
+    cookieSecure: window.location.protocol === 'https:',
+  });
+  return (
+    <html>
+      <body>
+        <AuthProvider store={store} router={NextPlugin} fallbackPath="/login">
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+<Tabs>
+  <Tab title="NextAuth component">
+
+## NextAuth
+
+A React component that guards the children of a Next.js layout or page. While authentication state is being confirmed, the component renders nothing. Once the user is verified as authenticated, it renders `children`. If the user is unauthenticated, they are redirected to `fallbackPath`.
+
+### Import
+
+```tsx
+import NextAuth from '@auth-kit/next/NextAuth';
+// or from the package root:
+import NextAuth from '@auth-kit/next';
+```
+
+<Note>
+  This file has `'use client'` at the top. Any layout or page that imports `NextAuth` is automatically a Client Component.
+</Note>
+
+### Props
+
+<ParamField path="children" type="ReactNode" required>
+  The content to render when the user is authenticated. Typically the `children` prop of a Next.js layout.
+</ParamField>
+
+<ParamField path="fallbackPath" type="string">
+  Path to redirect to when the user is not authenticated.
+
+  <Warning>
+    `fallbackPath` on `NextAuth` is deprecated and will be removed in a future version. Set `fallbackPath` on `AuthProvider` instead. If neither is set, an `AuthKitConfigError` is thrown at runtime.
+  </Warning>
+</ParamField>
+
+### Usage
+
+Wrap the `children` of a layout segment in `NextAuth` to protect every page under that segment.
+
+```tsx layout.tsx
+// app/dashboard/layout.tsx
+import NextAuth from '@auth-kit/next/NextAuth';
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <NextAuth>{children}</NextAuth>;
+}
+```
+
+If `fallbackPath` is not configured on `AuthProvider`, you can pass it directly — though this pattern is deprecated:
+
+```tsx layout.tsx (deprecated fallbackPath)
+import NextAuth from '@auth-kit/next/NextAuth';
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <NextAuth fallbackPath="/login">{children}</NextAuth>;
+}
+```
+
+  </Tab>
+  <Tab title="useNextAuth hook">
+
+## useNextAuth
+
+A React hook that performs the same authentication check as `NextAuth` but returns a `boolean` instead of rendering children. Use it when you need fine-grained control over what is rendered while authentication is pending.
+
+### Import
+
+```tsx
+import useNextAuth from '@auth-kit/next/useNextAuth';
+```
+
+<Note>
+  The module that uses `useNextAuth` must include `'use client'` because the hook calls Next.js navigation APIs that are only available in Client Components.
+</Note>
+
+### Parameters
+
+<ParamField path="fallbackPath" type="string">
+  Path to redirect to when the user is not authenticated.
+
+  <Warning>
+    `fallbackPath` on `useNextAuth` is deprecated and will be removed in a future version. Set `fallbackPath` on `AuthProvider` instead. If neither is set, an `AuthKitConfigError` is thrown at runtime.
+  </Warning>
+</ParamField>
+
+### Return value
+
+Returns `boolean` — `true` once the user is confirmed as authenticated, `false` while the check is pending (before the effect has run). The hook redirects to `fallbackPath` and the return value stays `false` when the user is not authenticated.
+
+### Usage
+
+```tsx layout.tsx
+'use client';
+import useNextAuth from '@auth-kit/next/useNextAuth';
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const isReady = useNextAuth({});
+
+  return isReady && children;
+}
+```
+
+The hook accepts `{}` when `fallbackPath` is already set on `AuthProvider`. Pass `fallbackPath` only if you need to override it for a specific layout:
+
+```tsx layout.tsx (with fallbackPath override — deprecated)
+'use client';
+import useNextAuth from '@auth-kit/next/useNextAuth';
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const isReady = useNextAuth({ fallbackPath: '/login' });
+
+  return isReady && children;
+}
+```
+
+  </Tab>
+</Tabs>
+
+## Choosing between NextAuth and useNextAuth
+
+| | `NextAuth` | `useNextAuth` |
+|---|---|---|
+| API style | Component | Hook |
+| Renders children | Yes, when authenticated | You control rendering |
+| Requires `'use client'` | Automatically applied | Must add to your file |
+| Suitable for layouts | Yes | Yes |
+| Suitable for pages | Yes | Yes |
+
+Both APIs have identical redirect behaviour — they call `router.push(fallbackPath)` inside a `useEffect` and sign the user out via `Action.doSignOut` before redirecting.

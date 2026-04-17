@@ -1,0 +1,106 @@
+---
+title: "AuthOutlet — group route authentication guard"
+description: "AuthOutlet from @auth-kit/react-router protects groups of nested routes by acting as a parent route element, rendering an Outlet when authenticated."
+---
+
+`AuthOutlet` is a React component from `@auth-kit/react-router` that guards a group of child routes in a single declaration. Use it as the `element` of a parent `<Route>` — when the user is authenticated it renders React Router's `<Outlet />`, making all nested routes accessible; when the user is not authenticated it redirects them to the configured fallback path.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @auth-kit/react-router
+```
+
+```bash yarn
+yarn add @auth-kit/react-router
+```
+
+```bash pnpm
+pnpm add @auth-kit/react-router
+```
+
+</CodeGroup>
+
+## Import
+
+```tsx
+import AuthOutlet from '@auth-kit/react-router';
+// or explicitly:
+import AuthOutlet from '@auth-kit/react-router/AuthOutlet';
+```
+
+<Note>
+  `AuthOutlet` is the default export of `@auth-kit/react-router`. Importing from the package root and from the explicit sub-path are equivalent.
+</Note>
+
+## Props
+
+<ParamField path="fallbackPath" type="string">
+  Path to redirect to when the user is not authenticated. Uses React Router's `<Navigate replace>` internally.
+
+  <Warning>
+    `fallbackPath` on `AuthOutlet` is deprecated and will be removed in a future version. Set `fallbackPath` on `AuthProvider` instead. If neither is set, an `AuthKitConfigError` is thrown at runtime.
+  </Warning>
+</ParamField>
+
+## Usage
+
+Place `<AuthOutlet />` as the `element` of a wrapper `<Route>`, then nest the routes you want to protect as children of that route:
+
+```tsx routes.tsx
+import { BrowserRouter, Routes, Route } from 'react-router';
+import AuthOutlet from '@auth-kit/react-router';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+import Orders from './pages/Orders';
+
+export default function AppRoutes() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public route */}
+        <Route path="/login" element={<Login />} />
+
+        {/* All routes nested here require authentication */}
+        <Route element={<AuthOutlet />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/orders" element={<Orders />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+When the user visits `/products` without being authenticated, `AuthOutlet` renders `<Navigate to="/login" replace />`. When the user is authenticated, it renders `<Outlet />`, which in turn renders the matched child route (`Products` in this example).
+
+<Note>
+  When `fallbackPath` is configured on `AuthProvider`, you do not need to pass it to `AuthOutlet`. The component reads it from context automatically.
+</Note>
+
+## AuthOutlet vs RequireAuth
+
+Use `AuthOutlet` when you want to protect a whole group of routes under a shared parent in one place. Use [`RequireAuth`](/reference/react-router/require-auth) when you need to protect individual routes one at a time or when different routes redirect to different fallback paths.
+
+| | `AuthOutlet` | `RequireAuth` |
+|---|---|---|
+| Protects | A group of nested routes | One route at a time |
+| Usage | Parent route `element` | Wrap the child route's `element` |
+| Renders when authenticated | React Router `<Outlet />` | `children` prop |
+| Redirect | `<Navigate replace>` | `<Navigate replace>` |
+
+```tsx side-by-side comparison
+// AuthOutlet: one guard for the whole group
+<Route element={<AuthOutlet />}>
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/settings"  element={<Settings />} />
+</Route>
+
+// RequireAuth: guard each route individually
+<Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+<Route path="/settings"  element={<RequireAuth><Settings /></RequireAuth>} />
+```

@@ -1,0 +1,174 @@
+---
+title: "Private Routes with Next.js App Router"
+description: "Protect Next.js App Router pages from unauthenticated access using the NextAuth component or the useNextAuth hook from @auth-kit/next."
+---
+
+React Auth Kit provides two ways to protect pages in the Next.js App Router: the `NextAuth` component for wrapping layout or page content, and the `useNextAuth` hook for more compositional control. Both approaches run entirely on the client side and redirect unauthenticated users to a configurable fallback path.
+
+<Warning>
+  Private route protection in `@auth-kit/next` runs client-side only. Server-side rendering is intentionally disabled for protected pages to prevent hydration errors. Authentication state is stored in the browser and cannot be read on the server.
+</Warning>
+
+## Installation
+
+Install the Next.js plugin alongside the core library:
+
+```bash
+npm install --save @auth-kit/next
+```
+
+## Configure the plugin
+
+Pass the `NextPlugin` to `AuthProvider` so React Auth Kit can use Next.js navigation. Wrap your root layout with `AuthProvider` to make auth state available throughout your application.
+
+```tsx title="app/providers.tsx"
+'use client';
+
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import NextPlugin from '@auth-kit/next/route';
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: typeof window !== 'undefined' ? window.location.hostname : '',
+  cookieSecure: typeof window !== 'undefined'
+    ? window.location.protocol === 'https:'
+    : true,
+});
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider store={store} fallbackPath="/login" router={NextPlugin}>
+      {children}
+    </AuthProvider>
+  );
+}
+```
+
+## Two approaches to private routes
+
+<Tabs>
+  <Tab title="NextAuth component">
+    The `NextAuth` component wraps your page or layout content. While the authentication check runs, nothing is rendered. Once the user is confirmed as authenticated, children are displayed.
+
+    Place `NextAuth` in a `layout.tsx` file to protect every page within that route segment at once:
+
+    ```tsx title="app/dashboard/layout.tsx"
+    'use client';
+
+    import NextAuth from '@auth-kit/next/NextAuth';
+
+    export default function DashboardLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      return <NextAuth fallbackPath="/login">{children}</NextAuth>;
+    }
+    ```
+
+    You can also use it directly in a `page.tsx` to protect a single page:
+
+    ```tsx title="app/dashboard/page.tsx"
+    'use client';
+
+    import NextAuth from '@auth-kit/next/NextAuth';
+
+    export default function DashboardPage() {
+      return (
+        <NextAuth fallbackPath="/login">
+          <h1>Dashboard</h1>
+          <p>Only visible to authenticated users.</p>
+        </NextAuth>
+      );
+    }
+    ```
+  </Tab>
+  <Tab title="useNextAuth hook">
+    The `useNextAuth` hook returns a boolean that is `true` once the user is confirmed as authenticated. Use this when you want manual control over what renders during and after the auth check.
+
+    ```tsx title="app/dashboard/layout.tsx"
+    'use client';
+
+    import useNextAuth from '@auth-kit/next/useNextAuth';
+
+    export default function DashboardLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      const isReady = useNextAuth({ fallbackPath: '/login' });
+
+      return isReady && children;
+    }
+    ```
+
+    The hook returns `false` while the auth check is pending and during the redirect. You can render a loading state during this window:
+
+    ```tsx title="app/dashboard/layout.tsx"
+    'use client';
+
+    import useNextAuth from '@auth-kit/next/useNextAuth';
+
+    export default function DashboardLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      const isReady = useNextAuth({ fallbackPath: '/login' });
+
+      if (!isReady) {
+        return <div>Loading...</div>;
+      }
+
+      return <>{children}</>;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## The `'use client'` directive
+
+Both `NextAuth` and `useNextAuth` are client components. Any file that uses them **must** include `'use client'` at the top.
+
+<Note>
+  `NextAuth` already has `'use client'` declared in the library source. However, if you wrap it in your own layout component (as in the examples above), that file must also declare `'use client'` because it imports and renders a client component.
+</Note>
+
+## The `fallbackPath` prop
+
+Both `NextAuth` and `useNextAuth` accept a `fallbackPath` option. This is **deprecated** — prefer setting `fallbackPath` once on `AuthProvider` instead. When `fallbackPath` is set on `AuthProvider`, you can omit it from `NextAuth` and `useNextAuth`.
+
+<Warning>
+  If no `fallbackPath` is found on either the component/hook or `AuthProvider`, React Auth Kit throws an `AuthKitConfigError` at runtime. Always set it in at least one place.
+</Warning>
+
+## API reference
+
+### `NextAuth` component
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | Yes | Content to render when the user is authenticated |
+| `fallbackPath` | `string` | No | **Deprecated.** Path to redirect to when unauthenticated. Use `AuthProvider` `fallbackPath` instead |
+
+### `useNextAuth` hook
+
+```ts
+useNextAuth({ fallbackPath?: string }): boolean
+```
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `fallbackPath` | `string` | No | **Deprecated.** Path to redirect to when unauthenticated. Use `AuthProvider` `fallbackPath` instead |
+
+Returns `true` when the user is authenticated and the component is ready to render, `false` otherwise.
+
+<CardGroup cols={2}>
+  <Card title="NextAuth reference" icon="lock" href="/reference/next/next-auth">
+    Full API reference for the NextAuth component and useNextAuth hook
+  </Card>
+  <Card title="Next.js integration guide" icon="plug" href="/integration/nextjs">
+    Set up AuthProvider and the Next.js plugin in your application
+  </Card>
+</CardGroup>

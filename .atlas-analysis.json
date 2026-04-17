@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "React Auth Kit",
+  "projectType": "sdk-library",
+  "projectName": "React Auth Kit",
+  "projectDescription": "A lightweight JWT-based authentication state management library for React, Next.js, and React Router applications.",
   "theme": "luma",
-  "colors": {
-    "primary": "#2563EB",
-    "light": "#EFF6FF",
-    "dark": "#1E3A8A"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/react-auth-kit/react-auth-kit"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/react-auth-kit/react-auth-kit"
-    }
-  },
+  "primaryColor": "#2563EB",
+  "lightColor": "#EFF6FF",
+  "darkColor": "#1E3A8A",
   "navigation": {
     "tabs": [
       {
@@ -95,5 +83,34 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "JWT-based token authentication with automatic expiry handling",
+    "Persistent storage via cookies or localStorage",
+    "Automatic token refresh with configurable intervals",
+    "Private route protection for React Router and Next.js App Router",
+    "Full TypeScript support with generic user state types",
+    "RxJS-powered reactive state management",
+    "Lightweight with minimal dependencies"
+  ],
+  "publicApiSurface": [
+    "AuthProvider",
+    "createAuthStore",
+    "createRefresh",
+    "useSignIn",
+    "useSignOut",
+    "useIsAuthenticated",
+    "useAuthUser",
+    "useAuthHeader",
+    "NextAuth (component)",
+    "useNextAuth (hook)",
+    "RequireAuth (component)",
+    "AuthOutlet (component)",
+    "CookieStorage",
+    "LocalStorage",
+    "AuthKitError",
+    "AuthKitConfigError",
+    "SignInActionPayload",
+    "AuthKitState"
+  ]
 }

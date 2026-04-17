@@ -1,0 +1,88 @@
+---
+title: "localStorage for Auth Token Storage"
+description: "Store JWT authentication tokens in browser localStorage with React Auth Kit — simpler setup than cookies, with trade-offs for security and cross-domain use."
+---
+
+React Auth Kit supports localStorage as an alternative to cookies for persisting authentication tokens. localStorage is simpler to configure — it requires no domain or security attributes — and keeps tokens isolated to the current origin. It is a good fit for single-origin apps where cross-subdomain sharing is not needed.
+
+## Basic setup
+
+Pass `'localstorage'` as the first argument to `createAuthStore`:
+
+```ts title="store.ts"
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('localstorage', {
+  authName: '_auth',
+});
+```
+
+Then pass the store to `AuthProvider`:
+
+```tsx title="main.tsx"
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import store from './store';
+
+export default function App() {
+  return (
+    <AuthProvider store={store}>
+      {/* your app */}
+    </AuthProvider>
+  );
+}
+```
+
+## Configuration options
+
+localStorage storage has a single configuration option.
+
+### `authName`
+
+**Type:** `string` | **Default:** `'_auth'`
+
+The base key name used when writing tokens to localStorage. React Auth Kit uses this as a prefix for all related keys (access token, refresh token, user state). For example, `authName: '_auth'` creates keys `_auth`, `_auth_refresh`, and `_auth_state`.
+
+```ts
+createAuthStore('localstorage', {
+  authName: '_myapp_auth',
+});
+```
+
+## How expiry works
+
+Unlike cookies, localStorage has no native expiry mechanism. React Auth Kit handles this internally by prepending an expiration timestamp to every stored value. When a value is read back, the library checks the timestamp and removes the entry if it has passed, throwing an `AuthKitStorageExpiredError`. This means token expiry is enforced at read time rather than by the browser.
+
+## Limitations
+
+<Warning>
+  localStorage is accessible to any JavaScript running on the same origin. If your application is vulnerable to cross-site scripting (XSS), an attacker can read auth tokens directly from localStorage. Cookies with `HttpOnly` set (managed server-side) prevent this, but React Auth Kit cookie storage does not set `HttpOnly` automatically.
+</Warning>
+
+- **No cross-subdomain sharing.** A token stored at `app.example.com` is not visible to `api.example.com`. Cookies support this via `cookieDomain`.
+- **No automatic CSRF protection.** localStorage values are not sent automatically with requests, so CSRF is not a concern — but this also means you must manually attach tokens to API calls (React Auth Kit's `useAuthHeader` handles this).
+- **Client-only.** localStorage is unavailable on the server, so private routes using `@auth-kit/next` remain client-side-only regardless of storage type.
+
+## Cookies vs localStorage
+
+| Feature | `cookie` | `localstorage` |
+|---|---|---|
+| Cross-subdomain sharing | Yes (configure `cookieDomain`) | No |
+| Survives page refresh | Yes | Yes |
+| Sent automatically with requests | Yes | No — attach manually |
+| CSRF risk | Yes — mitigate with `SameSite` | No |
+| XSS risk | Yes (mitigated with `HttpOnly` set server-side) | Yes (higher exposure) |
+| Server-readable | Yes | No |
+| Configuration complexity | Higher | Low |
+
+**Choose cookies** when you need cross-subdomain token sharing, server-side access to the token, or the security attributes cookies provide.
+
+**Choose localStorage** when you are building a single-origin SPA, want the simplest possible configuration, and are confident in your XSS mitigations.
+
+<CardGroup cols={2}>
+  <Card title="Cookie storage" icon="cookie" href="/guides/cookie-storage">
+    Configure cookie-based token storage with domain and security options
+  </Card>
+  <Card title="createAuthStore reference" icon="code" href="/reference/create-auth-store">
+    Full API reference for createAuthStore
+  </Card>
+</CardGroup>

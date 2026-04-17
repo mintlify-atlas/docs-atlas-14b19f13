@@ -1,0 +1,104 @@
+---
+title: "Installing React Auth Kit and its framework plugins"
+description: "Install the core react-auth-kit package and optional Next.js or React Router plugins. Covers peer dependencies and which package to use for each framework."
+---
+
+React Auth Kit is published as three separate npm packages. The core `react-auth-kit` package provides the store, provider, and all hooks — it's the only package you need for plain React or Vite apps. If you use Next.js App Router or React Router for private route protection, install the matching plugin alongside it.
+
+## Which package do you need?
+
+<CardGroup cols={3}>
+  <Card title="react-auth-kit" icon="react">
+    Core library. Required for every project. Includes `createAuthStore`, `AuthProvider`, and all hooks.
+  </Card>
+  <Card title="@auth-kit/next" icon="n">
+    Plugin for Next.js App Router. Adds server-side token handling and the `NextAuth` provider wrapper.
+  </Card>
+  <Card title="@auth-kit/react-router" icon="route">
+    Plugin for React Router v6+. Adds `RequireAuth` and `AuthOutlet` components for private routes.
+  </Card>
+</CardGroup>
+
+## Install the core package
+
+<CodeGroup>
+
+```bash npm
+npm install react-auth-kit
+```
+
+```bash yarn
+yarn add react-auth-kit
+```
+
+```bash pnpm
+pnpm add react-auth-kit
+```
+
+</CodeGroup>
+
+**Peer dependency:** React 16.8 or later (`>=16.8.0 || ^17.x || ^18.x || ^19.x`). No other peer dependencies are required for the core package.
+
+## Install a framework plugin
+
+Install your plugin alongside the core package.
+
+<Tabs>
+  <Tab title="Next.js">
+    <CodeGroup>
+
+    ```bash npm
+    npm install react-auth-kit @auth-kit/next
+    ```
+
+    ```bash yarn
+    yarn add react-auth-kit @auth-kit/next
+    ```
+
+    ```bash pnpm
+    pnpm add react-auth-kit @auth-kit/next
+    ```
+
+    </CodeGroup>
+
+    **Peer dependencies:** React 18 or later, and Next.js 14 or later.
+
+    <Warning>
+      `@auth-kit/next` requires Next.js 14+ and React 18+. It will not work with the Pages Router.
+    </Warning>
+  </Tab>
+  <Tab title="React Router">
+    <CodeGroup>
+
+    ```bash npm
+    npm install react-auth-kit @auth-kit/react-router
+    ```
+
+    ```bash yarn
+    yarn add react-auth-kit @auth-kit/react-router
+    ```
+
+    ```bash pnpm
+    pnpm add react-auth-kit @auth-kit/react-router
+    ```
+
+    </CodeGroup>
+
+    **Peer dependencies:** React 16.8 or later, and React Router 6 or later.
+
+    <Note>
+      `@auth-kit/react-router` is only needed if you want to use `RequireAuth` or `AuthOutlet` for declarative private routes. You can still use the hooks from `react-auth-kit` with React Router without this plugin.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build a working auth setup from scratch in five steps
+  </Card>
+  <Card title="Integration guides" icon="plug" href="/integration/react-app">
+    Framework-specific setup instructions for React, Next.js, and React Router
+  </Card>
+</CardGroup>

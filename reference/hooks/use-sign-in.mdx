@@ -1,0 +1,142 @@
+---
+title: "useSignIn — React Auth Kit hook"
+description: "useSignIn returns a function to authenticate the user. Pass an auth token, optional refresh token, and user state. Throws AuthKitError on config mismatch."
+---
+
+`useSignIn` returns a function you call during your login flow to write the authentication token (and optional refresh token and user state) into the React Auth Kit store. Once called, all other hooks in the tree immediately reflect the authenticated state.
+
+## Import
+
+```ts
+import useSignIn from 'react-auth-kit/hooks/useSignIn'
+```
+
+## TypeScript signature
+
+```ts
+function useSignIn<T>(): (signInConfig: signInFunctionParams<T>) => boolean | never
+```
+
+The generic `T` is the shape of your user state object. Provide it when you need type safety on `userState`.
+
+## The sign-in function
+
+Calling `useSignIn()` returns a function. Invoke that returned function with a `signInFunctionParams<T>` object to authenticate the user.
+
+### Parameters of the returned function
+
+<ParamField path="auth" type="object" required>
+  The access token payload.
+
+  <Expandable title="auth fields">
+    <ParamField path="auth.token" type="string" required>
+      The raw JWT access token string received from your authentication endpoint.
+    </ParamField>
+
+    <ParamField path="auth.type" type="string">
+      The token type prefix used in the `Authorization` header. Defaults to `"Bearer"` when omitted. `useAuthHeader` will return `"<type> <token>"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="refresh" type="string | null">
+  The refresh token string. **Required** when the store was created with a `refresh` configuration, and **must be omitted** when the store was not — passing it in the wrong scenario throws `AuthKitError`.
+</ParamField>
+
+<ParamField path="userState" type="T">
+  Arbitrary user data (e.g. name, roles, UUID) to store alongside the token. Accessible later via `useAuthUser`. Must conform to the type parameter `T`.
+</ParamField>
+
+<ParamField path="navigateTo" type="string">
+  A path to navigate to after successful sign-in. Navigation only occurs when a `router` plugin was provided to `AuthProvider`.
+</ParamField>
+
+### Return value
+
+Returns `true` on success. Throws `AuthKitError` (never returns `false`) when the refresh token configuration is mismatched.
+
+## Thrown errors
+
+| Error | Condition |
+|---|---|
+| `AuthKitError` | Hook is used outside of `AuthProvider` |
+| `AuthKitError` | Store uses refresh tokens but `refresh` param is missing |
+| `AuthKitError` | Store does not use refresh tokens but `refresh` param is provided |
+
+## Usage
+
+<CodeGroup>
+
+```tsx Without refresh token
+import useSignIn from 'react-auth-kit/hooks/useSignIn'
+
+function LoginPage() {
+  const signIn = useSignIn()
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    const res = await fetch('/api/login', { method: 'POST', /* ... */ })
+    const data = await res.json()
+
+    signIn({
+      auth: { token: data.accessToken, type: 'Bearer' },
+      userState: { name: data.name },
+    })
+  }
+
+  return <form onSubmit={handleLogin}>{/* form fields */}</form>
+}
+```
+
+```tsx With refresh token
+import useSignIn from 'react-auth-kit/hooks/useSignIn'
+
+function LoginPage() {
+  const signIn = useSignIn()
+
+  async function handleLogin() {
+    const res = await fetch('/api/login', { method: 'POST', /* ... */ })
+    const data = await res.json()
+
+    signIn({
+      auth: { token: data.accessToken, type: 'Bearer' },
+      refresh: data.refreshToken,
+      userState: { name: data.name },
+    })
+  }
+
+  return <button onClick={handleLogin}>Log in</button>
+}
+```
+
+```tsx TypeScript with typed user state
+import useSignIn from 'react-auth-kit/hooks/useSignIn'
+
+interface IUser {
+  name: string
+  uuid: string
+}
+
+function LoginPage() {
+  const signIn = useSignIn<IUser>()
+
+  async function handleLogin() {
+    const res = await fetch('/api/login', { method: 'POST' })
+    const data = await res.json()
+
+    signIn({
+      auth: { token: data.accessToken },
+      userState: { name: data.name, uuid: data.uuid },
+      navigateTo: '/dashboard',
+    })
+  }
+
+  return <button onClick={handleLogin}>Log in</button>
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  If your store was created with a `refresh` configuration you **must** include the `refresh` field in every `signIn` call, otherwise an `AuthKitError` is thrown. Conversely, if the store has no refresh configuration, including the `refresh` field also throws.
+</Warning>

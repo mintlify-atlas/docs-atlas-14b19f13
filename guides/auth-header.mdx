@@ -1,0 +1,139 @@
+---
+title: "Get the auth header with useAuthHeader"
+description: "Use useAuthHeader to get a formatted Authorization header for API calls. Returns null when the user is unauthenticated or the token has expired."
+---
+
+The `useAuthHeader` hook returns a ready-to-use `Authorization` header string in the format `"<type> <token>"` — for example, `"Bearer eyJ..."`. This saves you from manually assembling the header from token parts every time you make an authenticated API call. When the user is not authenticated or the token has expired, the hook returns `null`.
+
+## Import
+
+```javascript
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader';
+```
+
+## Signature
+
+```typescript
+function useAuthHeader(): () => string | null
+```
+
+The hook returns a **function**. Call the returned function to get the current header string. The type prefix (e.g., `"Bearer"`) is taken from the `auth.type` field you provided at sign-in time.
+
+## Examples
+
+### With fetch
+
+```jsx
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader';
+
+const UserProfile = () => {
+  const getAuthHeader = useAuthHeader();
+
+  const fetchProfile = async () => {
+    const authHeader = getAuthHeader();
+
+    if (!authHeader) {
+      // User is not authenticated
+      return;
+    }
+
+    const res = await fetch('/api/profile', {
+      headers: {
+        Authorization: authHeader,
+      },
+    });
+
+    const data = await res.json();
+    console.log(data);
+  };
+
+  return <button onClick={fetchProfile}>Load profile</button>;
+};
+```
+
+### With axios
+
+```jsx
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader';
+import axios from 'axios';
+
+const UserProfile = () => {
+  const getAuthHeader = useAuthHeader();
+
+  const fetchProfile = async () => {
+    const res = await axios.get('/api/profile', {
+      headers: {
+        Authorization: getAuthHeader(),
+      },
+    });
+
+    console.log(res.data);
+  };
+
+  return <button onClick={fetchProfile}>Load profile</button>;
+};
+```
+
+<Tip>
+  For a centralized approach, set the Authorization header once on an axios instance using an interceptor that calls `getAuthHeader()` on every request. This avoids repeating the header setup in every component.
+</Tip>
+
+### Adding a global axios interceptor
+
+```jsx
+import axios from 'axios';
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader';
+
+const useConfiguredAxios = () => {
+  const getAuthHeader = useAuthHeader();
+
+  const instance = axios.create({ baseURL: '/api' });
+
+  instance.interceptors.request.use((config) => {
+    const header = getAuthHeader();
+    if (header) {
+      config.headers.Authorization = header;
+    }
+    return config;
+  });
+
+  return instance;
+};
+```
+
+## Header format
+
+The returned string is always `"<type> <token>"`. The `<type>` value comes from the `auth.type` field set during `useSignIn`:
+
+```
+"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+If you omit `auth.type` at sign-in, the type defaults to `"Bearer"`.
+
+## Null handling
+
+`getAuthHeader()` returns `null` when:
+
+- The user is not signed in.
+- The stored token has expired (the store is cleared automatically before `null` is returned).
+
+Always check for `null` before using the value:
+
+```javascript
+const authHeader = getAuthHeader();
+
+if (authHeader) {
+  // Safe to use
+  headers['Authorization'] = authHeader;
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="User data" icon="user" href="/guides/user-data">
+    Read the authenticated user's stored state
+  </Card>
+  <Card title="Sign in" icon="arrow-right-to-bracket" href="/guides/sign-in">
+    Set the token type at sign-in with auth.type
+  </Card>
+</CardGroup>

@@ -1,0 +1,103 @@
+---
+title: "Check authentication status with useIsAuthenticated"
+description: "Use useIsAuthenticated to check JWT validity in React. Returns a function — call isAuthenticated() to get the boolean and auto-trigger sign-out on expiry."
+---
+
+The `useIsAuthenticated` hook checks whether the stored access token exists and has not yet expired. It does more than a simple boolean read: if the token is present but expired, it automatically signs the user out and — when a `fallbackPath` is configured in your store — redirects them to the login page.
+
+## Import
+
+```javascript
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated';
+```
+
+## Signature
+
+```typescript
+function useIsAuthenticated(): () => boolean
+```
+
+<Note>
+  `useIsAuthenticated` returns a **function**, not a boolean. You must call the returned function — `isAuthenticated()` — to get the current authentication status. This pattern allows React Auth Kit to run expiry and sign-out logic at the moment you check, not just when the hook renders.
+</Note>
+
+## Usage
+
+### Conditional rendering
+
+```jsx
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated';
+
+const Dashboard = () => {
+  const isAuthenticated = useIsAuthenticated();
+
+  if (isAuthenticated()) {
+    return <p>Welcome back! You are signed in.</p>;
+  }
+
+  return <p>Please sign in to continue.</p>;
+};
+```
+
+### Redirect when unauthenticated
+
+If you configure `fallbackPath` in `createAuthStore`, calling `isAuthenticated()` when the token is expired automatically navigates the user to that path. You can still handle the redirect manually for fine-grained control:
+
+```jsx
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated';
+
+const ProtectedPage = () => {
+  const isAuthenticated = useIsAuthenticated();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate('/login');
+    }
+  }, []);
+
+  return <div>Protected content</div>;
+};
+```
+
+<Tip>
+  For declarative route protection, use the `RequireAuth` component from `@auth-kit/react-router` or the `NextAuth` component from `@auth-kit/next` instead of writing manual redirect logic in each component.
+</Tip>
+
+### Full component example
+
+```jsx
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated';
+
+const Header = () => {
+  const isAuthenticated = useIsAuthenticated();
+
+  return (
+    <header>
+      <nav>
+        <a href="/">Home</a>
+        {isAuthenticated() ? (
+          <a href="/dashboard">Dashboard</a>
+        ) : (
+          <a href="/login">Sign in</a>
+        )}
+      </nav>
+    </header>
+  );
+};
+```
+
+## How expiry checking works
+
+When you call `isAuthenticated()`, React Auth Kit compares `store.value.auth.expiresAt` against the current time. The expiry date is set when you call `useSignIn` — it is derived from the JWT's own `exp` claim. If the token is expired, the store is cleared immediately (equivalent to calling `useSignOut`) before the function returns `false`.
+
+<CardGroup cols={2}>
+  <Card title="Private routes (React Router)" icon="lock" href="/guides/private-routes-react-router">
+    Declarative route protection with RequireAuth
+  </Card>
+  <Card title="User data" icon="user" href="/guides/user-data">
+    Read the authenticated user's stored state
+  </Card>
+</CardGroup>

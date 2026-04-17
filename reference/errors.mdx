@@ -1,0 +1,179 @@
+---
+title: "Errors — React Auth Kit error reference"
+description: "React Auth Kit error hierarchy: AuthKitError, AuthKitConfigError, AuthKitProviderMissingError, AuthKitStorageError, and AuthKitTokenError — when each is thrown."
+---
+
+React Auth Kit uses a typed error hierarchy so you can catch errors at the right level of specificity — catch `AuthKitError` to handle all library errors, or catch a subclass to handle a specific failure mode. Every error extends the built-in `Error` class and carries a descriptive `message`.
+
+## Inheritance hierarchy
+
+```
+Error
+└── AuthKitError
+    ├── AuthKitConfigError
+    ├── AuthKitProviderMissingError
+    ├── AuthKitTokenError
+    └── AuthKitStorageError
+        ├── AuthKitStorageExpiredError
+        └── AuthKitStorageInvalidError
+```
+
+---
+
+## `AuthKitError`
+
+The base class for all React Auth Kit errors. Catch this type to handle any library-level error without distinguishing the specific cause.
+
+```ts
+import { AuthKitError } from 'react-auth-kit'
+```
+
+**Thrown by:** `useSignIn` when the refresh token configuration is mismatched (e.g. refresh param provided when not expected, or missing when expected). Also thrown when a hook is used outside of `AuthProvider` scope.
+
+**Example catch:**
+```ts
+try {
+  signIn({ auth: { token: '...' }, refresh: '...' })
+} catch (e) {
+  if (e instanceof AuthKitError) {
+    console.error('Auth Kit error:', e.message)
+  }
+}
+```
+
+---
+
+## `AuthKitConfigError`
+
+Thrown when the library is configured incorrectly — before any user interaction occurs.
+
+```ts
+import { AuthKitConfigError } from 'react-auth-kit'
+```
+
+**Thrown by:**
+- `createAuthStore` — when `authType` is not `"cookie"` or `"localstorage"`.
+- `createRefresh` — when `interval` is a negative number.
+
+**Example:**
+```ts
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+// Throws AuthKitConfigError: authType 'session' is not supported
+const store = createAuthStore('session' as any, { authName: '_auth' })
+```
+
+---
+
+## `AuthKitProviderMissingError`
+
+Thrown when a React Auth Kit hook is called outside of an `AuthProvider` component tree.
+
+```ts
+import { AuthKitProviderMissingError } from 'react-auth-kit'
+```
+
+**Thrown by:** Any hook (`useSignIn`, `useSignOut`, `useIsAuthenticated`, `useAuthUser`, `useAuthHeader`) when the React context provided by `AuthProvider` is not found in the component tree.
+
+**How to fix:** Ensure `AuthProvider` wraps the component that uses the hook.
+
+```tsx
+// Incorrect — hook is outside AuthProvider
+function App() {
+  const signIn = useSignIn() // throws AuthKitProviderMissingError
+  return <AuthProvider store={store}><Routes /></AuthProvider>
+}
+
+// Correct — hook is inside AuthProvider
+function App() {
+  return <AuthProvider store={store}><Routes /></AuthProvider>
+}
+
+function LoginPage() {
+  const signIn = useSignIn() // works correctly
+}
+```
+
+---
+
+## `AuthKitStorageError`
+
+Base class for errors related to reading or writing tokens in the configured storage backend (cookies or `localStorage`).
+
+```ts
+import { AuthKitStorageError } from 'react-auth-kit'
+```
+
+**Thrown by:** Internal storage operations. Catch this class to handle all storage-related failures.
+
+---
+
+## `AuthKitStorageExpiredError`
+
+A specialisation of `AuthKitStorageError` thrown when a stored token is read but its stored expiry date has already passed.
+
+```ts
+import { AuthKitStorageExpiredError } from 'react-auth-kit'
+```
+
+**Thrown by:** Internal storage reads during store initialisation or token validation. Indicates the persisted token is too old to be used.
+
+---
+
+## `AuthKitStorageInvalidError`
+
+A specialisation of `AuthKitStorageError` thrown when a stored value is present but cannot be parsed or does not match the expected format.
+
+```ts
+import { AuthKitStorageInvalidError } from 'react-auth-kit'
+```
+
+**Thrown by:** Internal storage reads when cookie or `localStorage` data is corrupt, tampered with, or from an incompatible library version.
+
+---
+
+## `AuthKitTokenError`
+
+Thrown when a JWT token cannot be parsed, decoded, or validated.
+
+```ts
+import { AuthKitTokenError } from 'react-auth-kit'
+```
+
+**Thrown by:** Internal token processing. Indicates the token string supplied to `useSignIn` is malformed or not a valid JWT.
+
+---
+
+## Catching errors by specificity
+
+```ts
+import {
+  AuthKitError,
+  AuthKitConfigError,
+  AuthKitStorageExpiredError,
+  AuthKitStorageInvalidError,
+  AuthKitStorageError,
+  AuthKitTokenError,
+  AuthKitProviderMissingError,
+} from 'react-auth-kit'
+
+try {
+  // ... auth operation
+} catch (e) {
+  if (e instanceof AuthKitConfigError) {
+    // Bad configuration — fix at build time
+  } else if (e instanceof AuthKitProviderMissingError) {
+    // Component is mounted outside AuthProvider
+  } else if (e instanceof AuthKitStorageExpiredError) {
+    // Persisted token is expired — redirect to login
+  } else if (e instanceof AuthKitStorageInvalidError) {
+    // Storage data is corrupt — clear and redirect
+  } else if (e instanceof AuthKitStorageError) {
+    // Other storage failure
+  } else if (e instanceof AuthKitTokenError) {
+    // Malformed token
+  } else if (e instanceof AuthKitError) {
+    // Any other React Auth Kit error
+  }
+}
+```

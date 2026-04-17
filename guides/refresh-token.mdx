@@ -1,0 +1,222 @@
+---
+title: "Automatic token refresh with createRefresh"
+description: "Configure automatic JWT refresh in React Auth Kit using createRefresh. Define an async callback and an interval in minutes to keep user sessions alive."
+---
+
+React Auth Kit includes a built-in refresh engine that periodically calls your token refresh endpoint in the background. You configure it once using `createRefresh`, pass the result to `createAuthStore`, and the library handles calling your `refreshApiCallback` at the specified interval for as long as the user has a valid session.
+
+## How the refresh system works
+
+<Steps>
+  <Step title="Create a refresh config">
+    Call `createRefresh` with an interval and a callback that performs the network request.
+  </Step>
+  <Step title="Pass the config to createAuthStore">
+    Include the `createRefresh` return value in the `refresh` option of `createAuthStore`.
+  </Step>
+  <Step title="Include a refresh token at sign-in">
+    When calling `useSignIn`, provide the `refresh` field with the refresh token from your backend.
+  </Step>
+  <Step title="The library refreshes automatically">
+    React Auth Kit calls your callback every `interval` minutes. On success, the new tokens replace the old ones. On failure, the user is signed out.
+  </Step>
+</Steps>
+
+## createRefresh
+
+```javascript
+import createRefresh from 'react-auth-kit/createRefresh';
+```
+
+### Signature
+
+```typescript
+function createRefresh<T>(param: createRefreshAttribute<T>): createRefreshAttribute<T>
+```
+
+`createRefresh` is an identity function — it validates your config and returns it unchanged. Its purpose is type-checking and organizing your refresh configuration in one place.
+
+### Parameters
+
+<ParamField body="interval" type="number" required>
+  How often (in **minutes**) to call `refreshApiCallback`. Must be a positive number. For example, `10` triggers a refresh every 10 minutes.
+</ParamField>
+
+<ParamField body="refreshApiCallback" type="(param) => Promise<RefreshTokenActionResponse<T>>" required>
+  An async function that performs the token refresh network request. It receives the current `authToken`, `refreshToken`, and `authUserState`. It must return a `RefreshTokenActionResponse`.
+
+  See [callback reference](#refreshapicallback-reference) below.
+</ParamField>
+
+<ParamField body="initialRefreshComponent" type="React.ReactNode">
+  A React node (e.g., a loading spinner) to display while the **first** refresh attempt is in progress. This component is shown once on startup — not on every interval tick.
+</ParamField>
+
+## refreshApiCallback reference
+
+Your callback receives an object with the current auth state and must return a promise resolving to one of two shapes:
+
+**On success:**
+
+```typescript
+{
+  isSuccess: true,
+  newAuthToken: string,          // required — the new access token
+  newAuthTokenType?: string,     // optional — new token type (e.g. "Bearer")
+  newRefreshToken?: string,      // optional — new refresh token
+  newAuthUserState?: T | null,   // optional — updated user state
+}
+```
+
+**On failure:**
+
+```typescript
+{
+  isSuccess: false
+}
+```
+
+When `isSuccess` is `false`, React Auth Kit signs the user out immediately.
+
+### Callback parameters
+
+The callback receives:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `authToken` | `string \| undefined` | The current access token |
+| `refreshToken` | `string \| undefined` | The current refresh token |
+| `authUserState` | `T \| null` | The current user state |
+
+## Complete example
+
+### 1. Define the refresh config
+
+```javascript
+// refresh.js
+import createRefresh from 'react-auth-kit/createRefresh';
+import axios from 'axios';
+
+const refresh = createRefresh({
+  interval: 10,   // call the refresh endpoint every 10 minutes
+  refreshApiCallback: async ({ authToken, refreshToken, authUserState }) => {
+    try {
+      const response = await axios.post('/api/refresh', {
+        refreshToken,
+        authUserState,
+      }, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      return {
+        isSuccess: true,
+        newAuthToken: response.data.token,
+        newAuthTokenType: 'Bearer',
+        newRefreshToken: response.data.refreshToken,
+        newAuthUserState: response.data.user,
+      };
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return { isSuccess: false };
+    }
+  },
+  initialRefreshComponent: <div>Loading session...</div>,
+});
+
+export default refresh;
+```
+
+### 2. Pass the config to createAuthStore
+
+```jsx
+// app.jsx
+import createAuthStore from 'react-auth-kit/createAuthStore';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import refresh from './refresh';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+  refresh: refresh,
+});
+
+function App() {
+  return (
+    <AuthProvider store={store}>
+      <Routes />
+    </AuthProvider>
+  );
+}
+```
+
+### 3. Include the refresh token at sign-in
+
+```jsx
+import useSignIn from 'react-auth-kit/hooks/useSignIn';
+import axios from 'axios';
+
+const LoginForm = () => {
+  const signIn = useSignIn();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await axios.post('/api/login', {
+      email: e.target.email.value,
+      password: e.target.password.value,
+    });
+
+    if (res.status === 200) {
+      signIn({
+        auth: {
+          token: res.data.token,
+          type: 'Bearer',
+        },
+        refresh: res.data.refreshToken,   // required when using createRefresh
+        userState: { name: res.data.name, uid: res.data.uid },
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" />
+      <input name="password" type="password" />
+      <button type="submit">Log in</button>
+    </form>
+  );
+};
+```
+
+## initialRefreshComponent
+
+The `initialRefreshComponent` is rendered once when the app first mounts and the refresh engine has not yet completed its initial check. This is a good place to show a loading indicator to prevent a flash of unauthenticated content.
+
+```jsx
+const LoadingSpinner = () => (
+  <div className="spinner">Restoring session...</div>
+);
+
+const refresh = createRefresh({
+  interval: 10,
+  refreshApiCallback: async (param) => { /* ... */ },
+  initialRefreshComponent: <LoadingSpinner />,
+});
+```
+
+<Warning>
+  Only pass the return value of `createRefresh` as the `refresh` option in `createAuthStore`. Passing a plain object without going through `createRefresh` may cause unexpected behavior.
+</Warning>
+
+<Warning>
+  If you configure `createRefresh` in your store, you **must** pass a `refresh` token string when calling `useSignIn`. Omitting it throws `AuthKitError`. See the [sign-in guide](/guides/sign-in) for details.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Sign in" icon="arrow-right-to-bracket" href="/guides/sign-in">
+    Pass the refresh token at sign-in time
+  </Card>
+  <Card title="Cookie storage" icon="database" href="/guides/cookie-storage">
+    Configure token persistence with cookies
+  </Card>
+</CardGroup>

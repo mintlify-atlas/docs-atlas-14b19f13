@@ -1,0 +1,250 @@
+---
+title: "Integrate React Auth Kit into a React App"
+description: "Add JWT authentication to a Create React App or Vite project. Create a store, wrap your app with AuthProvider, and start using auth hooks in under five minutes."
+---
+
+React Auth Kit works with any standard React setup — whether you scaffolded your project with Create React App, Vite, or another bundler. You create a store once, wrap your component tree with `AuthProvider`, and every hook in the library becomes available throughout your app.
+
+<Steps>
+
+<Step title="Install the package">
+
+Install the core `react-auth-kit` package from npm.
+
+<CodeGroup>
+
+```bash npm
+npm install react-auth-kit
+```
+
+```bash yarn
+yarn add react-auth-kit
+```
+
+```bash pnpm
+pnpm add react-auth-kit
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Create the auth store">
+
+The store is the single source of truth for all authentication state — the access token, its expiry time, optional refresh token, and any user data you attach at sign-in. Create it once, outside your component tree, so the same instance is shared by every render.
+
+`createAuthStore` accepts two arguments: a storage type (`'cookie'` or `'localstorage'`) and a configuration object.
+
+<Tabs>
+
+<Tab title="TypeScript">
+
+```ts src/store.ts
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+export default store;
+```
+
+</Tab>
+
+<Tab title="JavaScript">
+
+```js src/store.js
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+export default store;
+```
+
+</Tab>
+
+</Tabs>
+
+<Tip>
+  Use `'localstorage'` instead of `'cookie'` if you prefer localStorage as the persistence layer. Cookie-based storage lets you set `cookieSecure` and `cookieDomain` automatically from `window.location`, which works well in most setups.
+</Tip>
+
+**`createAuthStore` options**
+
+| Option | Type | Description |
+|---|---|---|
+| `authName` | `string` | Prefix for the storage key (default: `'_auth'`) |
+| `cookieDomain` | `string` | Cookie domain. Required when `authType` is `'cookie'` |
+| `cookieSecure` | `boolean` | Require HTTPS for the cookie. Defaults to detecting `https:` from `window.location` |
+| `cookiePath` | `string` | Cookie path (default: `'/'`) |
+| `cookieSameSite` | `string` | SameSite attribute (default: `'none'`) |
+| `refresh` | `createRefreshAttribute` | Token refresh config created with `createRefresh` |
+| `debug` | `boolean` | Log auth state changes to the console |
+
+</Step>
+
+<Step title="Wrap your app with AuthProvider">
+
+`AuthProvider` uses React's Context API to make the store and router plugin available to every component below it. Place it at the top of your tree — before any routing components — so hooks like `useIsAuthenticated` and `useSignIn` work everywhere.
+
+<Tabs>
+
+<Tab title="TypeScript">
+
+```tsx src/App.tsx
+import React from 'react';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import store from './store';
+import RoutesComponent from './routes';
+
+function App() {
+  return (
+    <AuthProvider store={store} fallbackPath="/login">
+      <RoutesComponent />
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+<Tab title="JavaScript">
+
+```jsx src/App.jsx
+import React from 'react';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import store from './store';
+import RoutesComponent from './routes';
+
+function App() {
+  return (
+    <AuthProvider store={store} fallbackPath="/login">
+      <RoutesComponent />
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+</Tabs>
+
+**`AuthProvider` props**
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `store` | `Store` | Yes | The store object returned by `createAuthStore` |
+| `router` | `IRouter` | No | Router plugin (e.g. `ReactRouterPlugin`, `NextPlugin`) |
+| `fallbackPath` | `string` | No | Path to redirect unauthenticated users |
+| `children` | `ReactNode` | Yes | Your application tree |
+
+<Warning>
+  `AuthProvider` must wrap your router component (e.g. `BrowserRouter`), not the other way around. If you place `AuthProvider` inside `BrowserRouter`, private route components will fail to redirect correctly.
+</Warning>
+
+</Step>
+
+<Step title="Add a router plugin (optional)">
+
+If you are using React Router for navigation, pass the `ReactRouterPlugin` to `AuthProvider` so the library can perform programmatic redirects when tokens expire. See the [React Router integration guide](/integration/react-router) for the full setup.
+
+<Tabs>
+
+<Tab title="TypeScript">
+
+```tsx src/App.tsx
+import React from 'react';
+import { BrowserRouter } from 'react-router';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import ReactRouterPlugin from '@auth-kit/react-router/route';
+import store from './store';
+import RoutesComponent from './routes';
+
+function App() {
+  return (
+    <AuthProvider
+      store={store}
+      router={ReactRouterPlugin}
+      fallbackPath="/login"
+    >
+      <BrowserRouter>
+        <RoutesComponent />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+<Tab title="JavaScript">
+
+```jsx src/App.jsx
+import React from 'react';
+import { BrowserRouter } from 'react-router';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import ReactRouterPlugin from '@auth-kit/react-router/route';
+import store from './store';
+import RoutesComponent from './routes';
+
+function App() {
+  return (
+    <AuthProvider
+      store={store}
+      router={ReactRouterPlugin}
+      fallbackPath="/login"
+    >
+      <BrowserRouter>
+        <RoutesComponent />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+</Tab>
+
+</Tabs>
+
+</Step>
+
+</Steps>
+
+## Key concepts
+
+**Store** — Created with `createAuthStore`, the store holds the reactive auth state using RxJS. It is not a React component; it is a plain object you pass down through `AuthProvider`. Create it once at module scope, not inside a component.
+
+**AuthProvider** — A React context provider that makes the store available to every hook in the library. It also manages the token refresh loop if you configured a `refresh` object in your store.
+
+**Router plugin** — An adapter object (`IRouter`) that tells React Auth Kit how to navigate within your specific router. Without a router plugin, the `fallbackPath` redirect on token expiry will not fire. For plain React without routing, you can omit this prop.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Sign in users" icon="right-to-bracket" href="/guides/sign-in">
+    Use the `useSignIn` hook to store a JWT after your backend validates credentials
+  </Card>
+  <Card title="Private routes" icon="lock" href="/guides/private-routes-react-router">
+    Protect pages so only authenticated users can reach them
+  </Card>
+  <Card title="Token refresh" icon="arrows-rotate" href="/guides/refresh-token">
+    Keep sessions alive by automatically refreshing expiring tokens
+  </Card>
+  <Card title="React Router integration" icon="route" href="/integration/react-router">
+    Full setup guide for apps using React Router v6 or v7
+  </Card>
+</CardGroup>

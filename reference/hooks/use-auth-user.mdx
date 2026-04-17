@@ -1,0 +1,115 @@
+---
+title: "useAuthUser — React Auth Kit hook"
+description: "React hook that returns a function to retrieve the authenticated user's state object. Returns null when the user is not authenticated or the token has expired."
+---
+
+`useAuthUser` returns a function that, when called, gives you the user state object that was stored during `useSignIn`. It internally calls `useIsAuthenticated` to verify the token is still valid before returning the data, so you always get either a fresh user object or `null` — never stale data from an expired session.
+
+## Import
+
+```ts
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser'
+```
+
+## TypeScript signature
+
+```ts
+function useAuthUser<T>(): () => T | null
+```
+
+The generic parameter `T` is the shape of your user state object. It must match the type you used in `createAuthStore<T>` and `useSignIn<T>`.
+
+## Return value
+
+Returns a **function** `() => T | null`. Call that function to get the user state.
+
+| Return value | Meaning |
+|---|---|
+| `T` | The user state object stored at sign-in |
+| `null` | The user is not authenticated or the token has expired |
+
+## Usage
+
+<CodeGroup>
+
+```jsx JavaScript
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser'
+
+function Profile() {
+  const authUser = useAuthUser()
+  const user = authUser()
+
+  if (!user) {
+    return <p>Not logged in.</p>
+  }
+
+  return (
+    <div>
+      <p>Name: {user.name}</p>
+      <p>UUID: {user.uuid}</p>
+    </div>
+  )
+}
+```
+
+```tsx TypeScript with typed user state
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser'
+
+interface IUser {
+  name: string
+  uuid: string
+  role: 'admin' | 'user'
+}
+
+function Profile() {
+  const authUser = useAuthUser<IUser>()
+  const user = authUser()
+
+  if (!user) {
+    return <p>Not logged in.</p>
+  }
+
+  return (
+    <div>
+      <p>Name: {user.name}</p>
+      <p>UUID: {user.uuid}</p>
+      <p>Role: {user.role}</p>
+    </div>
+  )
+}
+```
+
+```tsx Combine with isAuthenticated check
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser'
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+
+interface IUser {
+  name: string
+  uuid: string
+}
+
+function NavBar() {
+  const isAuthenticated = useIsAuthenticated()
+  const authUser = useAuthUser<IUser>()
+
+  return (
+    <nav>
+      {isAuthenticated() ? (
+        <span>Hello, {authUser()?.name}</span>
+      ) : (
+        <a href="/login">Sign in</a>
+      )}
+    </nav>
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  The user state object is whatever you passed as `userState` in `useSignIn`. React Auth Kit does not parse or validate its shape — it stores and returns it as-is. If you did not provide `userState` during sign-in, `authUser()` may return `null` even when the user is authenticated.
+</Note>
+
+<Warning>
+  Always call the returned function — `authUser()` — to get the user data. The hook returns a function, not the user object directly.
+</Warning>

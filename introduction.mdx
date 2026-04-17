@@ -1,6 +1,6 @@
 ---
-title: "React Auth Kit: Token-based Auth for React"
-description: "Lightweight JWT auth library for React, Next.js, and React Router. Handles token storage, expiry, refresh, and private route protection out of the box."
+title: "React Auth Kit: JWT Auth for React Apps"
+description: "React Auth Kit handles JWT token storage, expiry, and refresh for React apps. Includes hooks for sign-in, sign-out, user data, and private route protection."
 ---
 
 React Auth Kit is a lightweight, production-ready authentication library for React-based applications. It handles JWT token storage, automatic expiry checking, token refresh, and private route protection — so you can focus on building your app instead of reinventing auth plumbing.
@@ -20,9 +20,34 @@ React Auth Kit is a lightweight, production-ready authentication library for Rea
   </Card>
 </CardGroup>
 
+## Why React Auth Kit?
+
+Managing authentication tokens in React has always required manual effort: storing tokens, checking expiry, refreshing sessions, and redirecting unauthenticated users. React Auth Kit automates all of this with a clean, hook-based API.
+
+<CardGroup cols={2}>
+  <Card title="Token-based auth" icon="key">
+    Built specifically for JWT and token-based authentication workflows
+  </Card>
+  <Card title="Flexible storage" icon="database">
+    Persist tokens in cookies or localStorage — your choice
+  </Card>
+  <Card title="Auto token refresh" icon="arrows-rotate">
+    Configure automatic refresh intervals to keep sessions alive
+  </Card>
+  <Card title="TypeScript-first" icon="shield-check">
+    Fully typed with generic user state support for your custom user objects
+  </Card>
+  <Card title="Framework plugins" icon="plug">
+    First-class support for React Router and Next.js App Router
+  </Card>
+  <Card title="Lightweight" icon="feather">
+    Minimal dependencies — RxJS, js-cookie, and deep-equal
+  </Card>
+</CardGroup>
+
 ## How it works
 
-React Auth Kit uses a reactive store to hold your authentication state — the access token, its expiry, any refresh token, and optional user data. The store is created once and passed to `AuthProvider`, which makes all hooks available throughout your component tree.
+React Auth Kit uses a reactive store (powered by RxJS) to hold your authentication state — the access token, its expiry, any refresh token, and optional user data. The store is created once and passed to `AuthProvider`, which makes all hooks available throughout your component tree.
 
 <Steps>
   <Step title="Create a store">
@@ -41,8 +66,14 @@ React Auth Kit uses a reactive store to hold your authentication state — the a
 
 ## Packages
 
+React Auth Kit is a monorepo. Install the packages you need:
+
 | Package | Description |
 |---|---|
 | `react-auth-kit` | Core library — store, provider, and all hooks |
 | `@auth-kit/next` | Plugin for Next.js App Router private routes |
 | `@auth-kit/react-router` | Plugin for React Router private routes |
+
+<Tip>
+  If you only use React without a specific router, the core `react-auth-kit` package is all you need.
+</Tip>

@@ -1,0 +1,143 @@
+---
+title: "Types — React Auth Kit type reference"
+description: "TypeScript types in React Auth Kit: SignInActionPayload, signInFunctionParams, and the AuthKitState discriminated union with auth and refresh token fields."
+---
+
+This page documents the public TypeScript types exported from `react-auth-kit`. All types are inferred automatically when you use the provided hooks, but you may import them explicitly for typing custom wrappers or utility functions.
+
+## `SignInActionPayload<T>`
+
+The full parameter object accepted by the function returned from `useSignIn`. `T` is the shape of your user state object.
+
+```ts
+import type { SignInActionPayload } from 'react-auth-kit'
+```
+
+<ResponseField name="auth" type="object" required>
+  The access token credentials.
+
+  <Expandable title="auth fields">
+    <ResponseField name="auth.token" type="string" required>
+      The raw JWT access token string.
+    </ResponseField>
+
+    <ResponseField name="auth.type" type="string">
+      The token type prefix used in the `Authorization` header — for example `"Bearer"`. Stored and later returned by `useAuthHeader` in the format `"<type> <token>"`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="refresh" type="string | null">
+  The refresh token. Required when the store was created with a `refresh` configuration. Must be omitted when the store does not use refresh tokens.
+</ResponseField>
+
+<ResponseField name="userState" type="T">
+  Arbitrary user data to store alongside the token. Retrievable via `useAuthUser<T>()`. Must match the generic type `T` you supplied to `createAuthStore` and `useSignIn`.
+</ResponseField>
+
+<ResponseField name="navigateTo" type="string">
+  A client-side path to navigate to after sign-in succeeds. Only takes effect when a `router` plugin is configured in `AuthProvider`.
+</ResponseField>
+
+---
+
+## `signInFunctionParams<T>`
+
+A type alias for `SignInActionPayload<T>`. Use either name — they are identical.
+
+```ts
+import type { signInFunctionParams } from 'react-auth-kit'
+
+// These are equivalent:
+type A = signInFunctionParams<IUser>
+type B = SignInActionPayload<IUser>
+```
+
+---
+
+## `AuthKitState<T>`
+
+The internal auth state shape managed by the store. You will not typically use this directly, but it is useful for understanding what data is available and for writing custom integrations.
+
+```ts
+import type { AuthKitState } from 'react-auth-kit'
+```
+
+`AuthKitState<T>` is an intersection of two discriminated unions — one for the auth token presence and one for the refresh token presence. The combination means you get full type narrowing on all four possible states.
+
+### Auth token union
+
+<ResponseField name="auth" type="object | null" required>
+  Present and non-null when the user is authenticated.
+
+  <Expandable title="auth fields (signed-in)">
+    <ResponseField name="auth.token" type="string">
+      The stored JWT access token.
+    </ResponseField>
+
+    <ResponseField name="auth.type" type="string">
+      The token type prefix (e.g. `"Bearer"`).
+    </ResponseField>
+
+    <ResponseField name="auth.expiresAt" type="Date">
+      The expiry timestamp of the access token. `useIsAuthenticated` compares this against `new Date()` to decide validity.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="userState" type="T | null" required>
+  The user state stored at sign-in, or `null` when signed out or when no `userState` was provided.
+</ResponseField>
+
+<ResponseField name="isSignIn" type="boolean" required>
+  `true` when the user is authenticated, `false` when signed out. Use this to discriminate between the two union members at the type level.
+</ResponseField>
+
+### Refresh token union
+
+<ResponseField name="refresh" type="object | null" required>
+  Present and non-null when the store uses refresh tokens and a refresh token is stored.
+
+  <Expandable title="refresh fields (with refresh token)">
+    <ResponseField name="refresh.token" type="string">
+      The stored refresh token string.
+    </ResponseField>
+
+    <ResponseField name="refresh.expiresAt" type="Date">
+      The expiry timestamp of the refresh token.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isUsingRefreshToken" type="boolean" required>
+  `true` when the store was created with a `refresh` configuration, `false` otherwise. Use this to discriminate between the refresh-enabled and refresh-disabled union members.
+</ResponseField>
+
+### Full shape example
+
+```ts
+// Signed in, with refresh token enabled
+const state: AuthKitState<IUser> = {
+  auth: {
+    token: 'eyJhbGc...',
+    type: 'Bearer',
+    expiresAt: new Date('2026-01-01T00:10:00Z'),
+  },
+  userState: { name: 'Alice', uuid: 'abc-123' },
+  isSignIn: true,
+  refresh: {
+    token: 'dGhpcyBpcyBhIHJlZnJlc2g...',
+    expiresAt: new Date('2026-01-01T01:00:00Z'),
+  },
+  isUsingRefreshToken: true,
+}
+
+// Signed out
+const signedOut: AuthKitState<IUser> = {
+  auth: null,
+  userState: null,
+  isSignIn: false,
+  refresh: null,
+  isUsingRefreshToken: false,
+}
+```

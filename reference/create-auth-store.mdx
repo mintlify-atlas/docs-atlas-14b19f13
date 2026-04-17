@@ -1,0 +1,156 @@
+---
+title: "createAuthStore — React Auth Kit store factory"
+description: "Create the central auth store for React Auth Kit. Configures cookie or localStorage persistence, token naming, and an optional token-refresh engine."
+---
+
+`createAuthStore` is the factory function that builds the `Store<T>` object you pass to `AuthProvider`. It decides where tokens are persisted (browser cookies or `localStorage`), names the storage keys, and optionally wires up the automatic token-refresh engine.
+
+## Import
+
+```ts
+import createAuthStore from 'react-auth-kit/createAuthStore'
+```
+
+## TypeScript signature
+
+```ts
+function createAuthStore<T>(
+  authType: 'cookie' | 'localstorage',
+  authAttributes: storeAttributes<T>,
+): Store<T>
+```
+
+`T` is the shape of your user state object. Supply it explicitly in TypeScript to get fully typed returns from hooks such as `useAuthUser`.
+
+## Parameters
+
+<ParamField path="authType" type="'cookie' | 'localstorage'" required>
+  Storage backend for auth tokens.
+
+  - `"cookie"` — stores tokens as HTTP cookies. Supports all `cookie*` attributes below.
+  - `"localstorage"` — stores tokens in `window.localStorage`. Cookie attributes are ignored.
+
+  Throws `AuthKitConfigError` if any other value is passed.
+</ParamField>
+
+<ParamField path="authAttributes" type="storeAttributes<T>" required>
+  Configuration object for the store. All fields are optional.
+
+  <Expandable title="authAttributes fields">
+
+    <ParamField path="authAttributes.authName" type="string" default="_auth">
+      The base name used for all storage keys. When using cookies, this value is also used as the cookie name prefix for the auth token, the refresh token, and the user state.
+    </ParamField>
+
+    <ParamField path="authAttributes.cookieDomain" type="string" default="window.location.hostname">
+      Domain scope for the auth cookie. Relevant only when `authType` is `"cookie"`. Setting this to `window.location.hostname` is the most common choice.
+    </ParamField>
+
+    <ParamField path="authAttributes.cookieSecure" type="boolean" default="true on HTTPS, false on HTTP">
+      When `true`, the cookie is only sent over HTTPS connections. Relevant only when `authType` is `"cookie"`. Defaults to `window.location.protocol === 'https:'`.
+    </ParamField>
+
+    <ParamField path="authAttributes.cookiePath" type="string" default="/">
+      Limits cookie scope to a URL path prefix. Relevant only when `authType` is `"cookie"`.
+    </ParamField>
+
+    <ParamField path="authAttributes.cookieSameSite" type="'strict' | 'lax' | 'none'" default="none">
+      `SameSite` attribute for the cookie. Relevant only when `authType` is `"cookie"`. Use `"strict"` for maximum CSRF protection or `"none"` when your API is on a different origin (requires `cookieSecure: true`).
+    </ParamField>
+
+    <ParamField path="authAttributes.refresh" type="createRefreshAttribute<T>">
+      Token-refresh configuration created with `createRefresh`. When provided, `AuthProvider` starts the automatic refresh engine. Omit this field if you do not use refresh tokens.
+    </ParamField>
+
+    <ParamField path="authAttributes.debug" type="boolean" default="false">
+      Enables verbose console logging of the auth state machine. Useful during development to trace token reads, writes, and refreshes.
+    </ParamField>
+
+  </Expandable>
+</ParamField>
+
+## Return value
+
+Returns a `Store<T>` object consumed by `AuthProvider`. You should not read or mutate the store directly — pass it to `AuthProvider` and use the provided hooks inside your component tree.
+
+```ts
+interface Store<T> {
+  tokenStore: ITokenStore<T>
+  refresh?: createRefreshAttribute<T>
+}
+```
+
+## Usage
+
+<CodeGroup>
+
+```js Cookie storage (JavaScript)
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+})
+```
+
+```js localStorage (JavaScript)
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+const store = createAuthStore('localstorage', {
+  authName: '_auth',
+})
+```
+
+```ts TypeScript with typed user state
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+interface IUser {
+  name: string
+  uuid: string
+}
+
+const store = createAuthStore<IUser>('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+})
+```
+
+```ts With token refresh
+import createAuthStore from 'react-auth-kit/createAuthStore'
+import createRefresh from 'react-auth-kit/createRefresh'
+
+const refresh = createRefresh({
+  interval: 10, // minutes
+  refreshApiCallback: async ({ authToken, refreshToken, authUserState }) => {
+    try {
+      const res = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      const data = await res.json()
+      return { isSuccess: true, newAuthToken: data.token }
+    } catch {
+      return { isSuccess: false }
+    }
+  },
+})
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+  refresh,
+})
+```
+
+</CodeGroup>
+
+<Warning>
+  Throws `AuthKitConfigError` if `authType` is not `"cookie"` or `"localstorage"`.
+</Warning>
+
+<Tip>
+  Create the store **outside** your component tree (at module level) so it is only instantiated once and not recreated on every render.
+</Tip>

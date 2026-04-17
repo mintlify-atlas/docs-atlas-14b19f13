@@ -1,0 +1,107 @@
+---
+title: "Access user data with useAuthUser"
+description: "Use useAuthUser to read the user state stored at sign-in from any React component. Returns a function — call authUser() to get the typed user object or null."
+---
+
+The `useAuthUser` hook retrieves the `userState` object that was saved during `useSignIn`. This is the arbitrary user data you passed under the `userState` key at sign-in time — for example, a display name, user ID, or role. The hook returns `null` when the user is not authenticated or the token has expired, so always check for `null` before accessing fields.
+
+## Import
+
+```javascript
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser';
+```
+
+## Signature
+
+```typescript
+function useAuthUser<T>(): () => T | null
+```
+
+Like `useIsAuthenticated`, this hook returns a **function**. Call the returned function to get the current user state. Internally it calls `useIsAuthenticated()`, so an expired token will trigger sign-out and return `null` at the moment of access.
+
+## Examples
+
+### JavaScript
+
+```jsx
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser';
+
+const ProfileCard = () => {
+  const authUser = useAuthUser();
+  const user = authUser();
+
+  if (!user) {
+    return <p>Not signed in.</p>;
+  }
+
+  return (
+    <div>
+      <p>Name: {user.name}</p>
+      <p>ID: {user.uid}</p>
+    </div>
+  );
+};
+```
+
+### TypeScript
+
+Pass your user interface as the generic type parameter so TypeScript knows the shape of the returned object.
+
+```tsx
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser';
+
+interface IUserData {
+  name: string;
+  uuid: string;
+}
+
+const ProfileCard = () => {
+  const authUser = useAuthUser<IUserData>();
+  const user = authUser();  // type: IUserData | null
+
+  if (!user) {
+    return <p>Not signed in.</p>;
+  }
+
+  return (
+    <div>
+      <p>Name: {user.name}</p>
+      <p>UUID: {user.uuid}</p>
+    </div>
+  );
+};
+```
+
+<Note>
+  The generic type `T` must match the shape of the `userState` object you passed to `useSignIn`. React Auth Kit stores and returns it as-is — there is no schema validation at runtime.
+</Note>
+
+## Null handling
+
+`useAuthUser` returns `null` in two situations:
+
+- The user is not signed in (no token in the store).
+- The stored token has expired. In this case, the store is cleared automatically before `null` is returned.
+
+Always guard against `null` before accessing properties:
+
+```tsx
+const user = authUser();
+
+// Safe access
+const displayName = user?.name ?? 'Guest';
+
+// Explicit null check
+if (user !== null) {
+  console.log(user.uuid);
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Sign in" icon="arrow-right-to-bracket" href="/guides/sign-in">
+    Store user data at sign-in time with useSignIn
+  </Card>
+  <Card title="Auth header" icon="network-wired" href="/guides/auth-header">
+    Get the formatted Authorization header for API calls
+  </Card>
+</CardGroup>

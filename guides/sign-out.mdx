@@ -1,0 +1,81 @@
+---
+title: "Sign out users with useSignOut"
+description: "Clear the authenticated session in React by calling useSignOut, which removes the JWT and user state from the store and optionally redirects to a new route."
+---
+
+The `useSignOut` hook gives you a function that clears all authentication state from React Auth Kit's store — the access token, refresh token (if any), and user state are all removed. Once called, any subsequent call to `useIsAuthenticated` returns `false` and `useAuthUser` returns `null`.
+
+## Import
+
+```javascript
+import useSignOut from 'react-auth-kit/hooks/useSignOut';
+```
+
+## Signature
+
+```typescript
+function useSignOut(navigateTo?: string): () => void
+```
+
+Pass an optional path to `useSignOut` at the **hook call site** to navigate there automatically after sign-out. The hook returns a zero-argument function — call that function (e.g. in a button's `onClick`) to trigger sign-out.
+
+## Parameters
+
+<ParamField path="navigateTo" type="string">
+  Path to navigate to after signing out. Requires a router plugin (`@auth-kit/react-router` or `@auth-kit/next`) to be configured in `createAuthStore`. If omitted, no redirect occurs.
+</ParamField>
+
+## Examples
+
+### Simple sign-out button
+
+```jsx
+import useSignOut from 'react-auth-kit/hooks/useSignOut';
+
+const NavBar = () => {
+  const signOut = useSignOut();
+
+  return (
+    <button onClick={() => signOut()}>Sign out</button>
+  );
+};
+```
+
+### Sign-out with redirect
+
+Pass the destination path when calling the hook, not when calling the returned function.
+
+```jsx
+import useSignOut from 'react-auth-kit/hooks/useSignOut';
+
+const NavBar = () => {
+  const signOut = useSignOut('/login');
+
+  return (
+    <button onClick={() => signOut()}>Sign out</button>
+  );
+};
+```
+
+<Note>
+  The redirect only works when a router plugin is wired into your `createAuthStore` call. Without a router, sign-out still clears the session — the user just won't be redirected automatically.
+</Note>
+
+### What gets cleared
+
+Calling the sign-out function removes all of the following from the store:
+
+- The access token and its expiry time
+- The refresh token (if your app uses one)
+- The user state object stored via `userState`
+
+The storage medium (cookie or localStorage) is also cleared, so the user remains signed out after a page refresh.
+
+<CardGroup cols={2}>
+  <Card title="Sign in" icon="arrow-right-to-bracket" href="/guides/sign-in">
+    Authenticate a user and store their JWT
+  </Card>
+  <Card title="Auth status" icon="shield-check" href="/guides/auth-status">
+    Check if the current user is still authenticated
+  </Card>
+</CardGroup>

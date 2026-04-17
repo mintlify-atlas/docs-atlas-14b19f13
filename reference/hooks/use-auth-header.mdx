@@ -1,0 +1,108 @@
+---
+title: "useAuthHeader — React Auth Kit hook"
+description: "useAuthHeader returns a function for Authorization headers. Call getAuthHeader() to get the Bearer token string or null if the user is not authenticated."
+---
+
+`useAuthHeader` returns a function that produces a ready-to-use `Authorization` header value in the format `"<type> <token>"` — for example `"Bearer eyJhbGc..."`. Use it to attach auth credentials to outgoing fetch or Axios requests without manually constructing the header string.
+
+## Import
+
+```ts
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader'
+```
+
+## TypeScript signature
+
+```ts
+function useAuthHeader(): () => string | null
+```
+
+## Return value
+
+Returns a **function** `() => string | null`. Call that function to get the current header value.
+
+| Return value | Meaning |
+|---|---|
+| `"<type> <token>"` | The user is authenticated — e.g. `"Bearer eyJhbGciOiJIUzI1NiJ9..."` |
+| `null` | The user is not authenticated or the token has expired |
+
+The `type` portion comes from `auth.type` supplied to `useSignIn` (defaults to `"Bearer"` if the field was omitted at sign-in and the stored type is `"Bearer"`).
+
+## Usage
+
+<CodeGroup>
+
+```tsx In a fetch call
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader'
+
+function DataFetcher() {
+  const getAuthHeader = useAuthHeader()
+
+  async function loadData() {
+    const authHeader = getAuthHeader()
+    if (!authHeader) return
+
+    const res = await fetch('/api/data', {
+      headers: { Authorization: authHeader },
+    })
+    const data = await res.json()
+    console.log(data)
+  }
+
+  return <button onClick={loadData}>Load protected data</button>
+}
+```
+
+```tsx With Axios interceptor
+import axios from 'axios'
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader'
+import { useEffect } from 'react'
+
+function useAxiosAuth() {
+  const getAuthHeader = useAuthHeader()
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.request.use((config) => {
+      const header = getAuthHeader()
+      if (header) {
+        config.headers.Authorization = header
+      }
+      return config
+    })
+    return () => axios.interceptors.request.eject(interceptor)
+  }, [getAuthHeader])
+}
+```
+
+```tsx Guard before request
+import useAuthHeader from 'react-auth-kit/hooks/useAuthHeader'
+import useIsAuthenticated from 'react-auth-kit/hooks/useIsAuthenticated'
+
+function ApiButton() {
+  const getAuthHeader = useAuthHeader()
+  const isAuthenticated = useIsAuthenticated()
+
+  async function callApi() {
+    if (!isAuthenticated()) {
+      console.warn('User is not authenticated')
+      return
+    }
+    const res = await fetch('/api/protected', {
+      headers: { Authorization: getAuthHeader()! },
+    })
+    console.log(await res.json())
+  }
+
+  return <button onClick={callApi}>Call API</button>
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Always call the returned function — `getAuthHeader()` — to get the header string. The hook itself returns a function, not the string. Check for `null` before using the result in a network request.
+</Warning>
+
+<Note>
+  The format is always `"${auth.type} ${auth.token}"` — a single space between the type and the token. This matches the standard HTTP `Authorization` header format used by Bearer tokens, Basic auth, and other schemes.
+</Note>

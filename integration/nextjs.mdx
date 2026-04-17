@@ -1,0 +1,187 @@
+---
+title: "Integrate React Auth Kit with Next.js App Router"
+description: "Add JWT authentication to a Next.js App Router project using @auth-kit/next, AuthProvider, and the NextPlugin router adapter in a client component."
+---
+
+React Auth Kit supports Next.js App Router through the `@auth-kit/next` companion package. Because React Auth Kit manages auth state on the client, you create a client component that wraps your root layout with `AuthProvider` — a pattern that Next.js officially recommends for context providers.
+
+<Note>
+  React Auth Kit currently handles authentication state on the **client side only**. Server-side token validation and SSR-aware redirects are not yet available. Client-side redirection via `NextAuth` fires after the initial render.
+</Note>
+
+<Steps>
+
+<Step title="Install the packages">
+
+Install the core library and the Next.js plugin together.
+
+<CodeGroup>
+
+```bash npm
+npm install react-auth-kit @auth-kit/next
+```
+
+```bash yarn
+yarn add react-auth-kit @auth-kit/next
+```
+
+```bash pnpm
+pnpm add react-auth-kit @auth-kit/next
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Create the auth store">
+
+Create the store in a separate file so it is initialized once and shared across your provider. The store must be created **outside** any React component; it is a plain module-level object.
+
+```ts app/store.ts
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: typeof window !== 'undefined' ? window.location.hostname : '',
+  cookieSecure: typeof window !== 'undefined'
+    ? window.location.protocol === 'https:'
+    : true,
+});
+
+export default store;
+```
+
+<Warning>
+  `createAuthStore` reads `window.location` at call time. Guard with `typeof window !== 'undefined'` if this file is ever imported in a server context, or move the store initialization inside the client component below.
+</Warning>
+
+</Step>
+
+<Step title="Create the client-side Providers component">
+
+Next.js App Router Server Components cannot use React context. You must mark any file that uses `AuthProvider` with the `'use client'` directive. Create a dedicated `Providers` client component and import the store here.
+
+```tsx app/providers.tsx
+'use client';
+
+import React from 'react';
+import AuthProvider from 'react-auth-kit/AuthProvider';
+import NextPlugin from '@auth-kit/next/route';
+import createAuthStore from 'react-auth-kit/createAuthStore';
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+});
+
+interface ProvidersProps {
+  children: React.ReactNode;
+}
+
+export default function Providers({ children }: ProvidersProps) {
+  return (
+    <AuthProvider store={store} router={NextPlugin} fallbackPath="/login">
+      {children}
+    </AuthProvider>
+  );
+}
+```
+
+**Why `'use client'`?**
+
+`AuthProvider` uses React context and hooks internally. Next.js requires that any component using these APIs be declared as a Client Component. The `'use client'` directive at the top of the file tells the bundler to include this component only in the client bundle.
+
+</Step>
+
+<Step title="Wrap the root layout">
+
+Import your `Providers` component into `app/layout.tsx` and wrap the entire application. Because `Providers` is marked `'use client'`, the layout file itself can remain a Server Component.
+
+```tsx app/layout.tsx
+import Providers from './providers';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Providers>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </Providers>
+  );
+}
+```
+
+All pages and layouts nested inside `RootLayout` now have access to React Auth Kit hooks and context.
+
+</Step>
+
+<Step title="Protect pages with NextAuth">
+
+For pages that require authentication, wrap the page content with the `NextAuth` component from `@auth-kit/next`. When the user is not authenticated, `NextAuth` redirects them to the `fallbackPath` you set on `AuthProvider` (or you can pass it directly as a prop).
+
+```tsx app/dashboard/layout.tsx
+'use client';
+
+import NextAuth from '@auth-kit/next/NextAuth';
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <NextAuth>{children}</NextAuth>;
+}
+```
+
+<Note>
+  The `fallbackPath` prop on `NextAuth` is deprecated. Set `fallbackPath` on `AuthProvider` instead — it applies globally to all `NextAuth` usages in your app.
+</Note>
+
+</Step>
+
+</Steps>
+
+## How the Next.js plugin works
+
+The `NextPlugin` exported from `@auth-kit/next/route` is a plain `IRouter` adapter object with three methods:
+
+| Method | Implementation | Purpose |
+|---|---|---|
+| `navigate` | `redirect(to)` from `next/navigation` | Server-side redirect (used outside components) |
+| `useNavigate` | Wraps `useRouter().push` | Client-side navigation hook |
+| `usePath` | Wraps `usePathname()` | Returns the current pathname |
+
+Pass `NextPlugin` as the `router` prop on `AuthProvider` to connect React Auth Kit's internal navigation to Next.js's router.
+
+## Complete file reference
+
+```
+app/
+├── layout.tsx          ← RootLayout (Server Component, wraps Providers)
+├── providers.tsx       ← 'use client' — AuthProvider + NextPlugin
+├── store.ts            ← createAuthStore (plain module, no 'use client' needed)
+└── dashboard/
+    └── layout.tsx      ← 'use client' — NextAuth protects this segment
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Private routes in Next.js" icon="lock" href="/guides/private-routes-nextjs">
+    Detailed guide to protecting App Router pages with NextAuth
+  </Card>
+  <Card title="Sign in users" icon="right-to-bracket" href="/guides/sign-in">
+    Use the `useSignIn` hook to store tokens after login
+  </Card>
+  <Card title="Token refresh" icon="arrows-rotate" href="/guides/refresh-token">
+    Automatically refresh expiring JWTs to keep sessions alive
+  </Card>
+  <Card title="Auth state hooks" icon="code" href="/guides/auth-status">
+    Check authentication status and read user data anywhere
+  </Card>
+</CardGroup>

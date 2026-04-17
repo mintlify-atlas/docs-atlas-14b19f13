@@ -1,0 +1,111 @@
+---
+title: "RequireAuth — per-route authentication wrapper"
+description: "RequireAuth from @auth-kit/react-router wraps individual route elements to enforce authentication and redirect unauthenticated users."
+---
+
+`RequireAuth` is a React component from `@auth-kit/react-router` that enforces authentication on a per-route basis. Place it as the `element` of a `<Route>` — or wrap a component directly inside its `element` prop — to redirect unauthenticated visitors to a login page while allowing authenticated users through.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @auth-kit/react-router
+```
+
+```bash yarn
+yarn add @auth-kit/react-router
+```
+
+```bash pnpm
+pnpm add @auth-kit/react-router
+```
+
+</CodeGroup>
+
+## Import
+
+```tsx
+import RequireAuth from '@auth-kit/react-router/RequireAuth';
+```
+
+## Props
+
+<ParamField path="children" type="ReactNode" required>
+  The component or subtree to render when the user is authenticated. Typically the page component assigned to the route.
+</ParamField>
+
+<ParamField path="fallbackPath" type="string">
+  Path to redirect to when the user is not authenticated. Uses React Router's `<Navigate replace>` internally.
+
+  <Warning>
+    `fallbackPath` on `RequireAuth` is deprecated and will be removed in a future version. Set `fallbackPath` on `AuthProvider` instead. If neither is set, an `AuthKitConfigError` is thrown at runtime.
+  </Warning>
+</ParamField>
+
+## Usage
+
+Wrap the component you want to protect inside `RequireAuth` and pass the result to the `element` prop of the route:
+
+```tsx routes.tsx
+import { BrowserRouter, Routes, Route } from 'react-router';
+import RequireAuth from '@auth-kit/react-router/RequireAuth';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+
+export default function AppRoutes() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <Dashboard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <RequireAuth>
+              <Settings />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+<Note>
+  When `fallbackPath` is configured on `AuthProvider`, you do not need to pass it to `RequireAuth`. The component reads `fallbackPath` from context automatically.
+</Note>
+
+## RequireAuth vs AuthOutlet
+
+Use `RequireAuth` when you want to protect individual routes one at a time. Use [`AuthOutlet`](/reference/react-router/auth-outlet) when you want to protect a whole group of routes under a shared parent.
+
+| | `RequireAuth` | `AuthOutlet` |
+|---|---|---|
+| Protects | One route at a time | A group of nested routes |
+| Usage | Wrap the route's `element` | Use as the parent route's `element` |
+| Renders | `children` when authenticated | React Router `<Outlet />` when authenticated |
+| Redirect | `<Navigate replace>` | `<Navigate replace>` |
+
+```tsx side-by-side comparison
+// RequireAuth: protect routes individually
+<Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+<Route path="/settings"  element={<RequireAuth><Settings /></RequireAuth>} />
+
+// AuthOutlet: protect a group in one place
+<Route element={<AuthOutlet />}>
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/settings"  element={<Settings />} />
+</Route>
+```

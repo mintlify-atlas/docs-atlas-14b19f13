@@ -1,0 +1,119 @@
+---
+title: "AuthProvider — React Auth Kit component"
+description: "AuthProvider is the top-level context provider for React Auth Kit. Pass it a store, an optional router plugin, and a fallback path for unauthenticated users."
+---
+
+`AuthProvider` is the top-level React context provider that makes authentication state available throughout your component tree. It must wrap your entire application — including any router components — so that hooks like `useSignIn` and `useIsAuthenticated` can access the shared auth store.
+
+## Import
+
+```ts
+import AuthProvider from 'react-auth-kit/AuthProvider'
+```
+
+## TypeScript signature
+
+```ts
+function AuthProvider<T>(props: AuthProviderProps<T>): ReturnType<React.FC>
+```
+
+The generic parameter `T` is the shape of your user state object. It flows from the store you create with `createAuthStore` and is inferred automatically when you pass a typed store.
+
+## Props
+
+<ParamField path="store" type="Store<T>" required>
+  The auth store created by `createAuthStore`. Holds the token, refresh token, and user state. Pass the return value of `createAuthStore` directly.
+</ParamField>
+
+<ParamField path="router" type="IRouter">
+  A router plugin that allows React Auth Kit to redirect the user after sign-in or when a token expires. For React Router v6 use `@auth-kit/react-router/route`. Omit this prop if you handle navigation yourself.
+</ParamField>
+
+<ParamField path="fallbackPath" type="string">
+  The path to redirect to when the user is not authenticated and tries to access a protected route. Only used when `router` is also provided. Example: `"/login"`.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Your application component tree. `AuthProvider` should be the outermost wrapper so auth state is available everywhere.
+</ParamField>
+
+## Usage
+
+<CodeGroup>
+
+```tsx Basic setup
+import AuthProvider from 'react-auth-kit/AuthProvider'
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+})
+
+export default function App() {
+  return (
+    <AuthProvider store={store}>
+      <YourRoutes />
+    </AuthProvider>
+  )
+}
+```
+
+```tsx With router and fallback
+import AuthProvider from 'react-auth-kit/AuthProvider'
+import createAuthStore from 'react-auth-kit/createAuthStore'
+import ReactRouterPlugin from '@auth-kit/react-router/route'
+
+const store = createAuthStore('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+})
+
+export default function App() {
+  return (
+    <AuthProvider
+      store={store}
+      router={ReactRouterPlugin}
+      fallbackPath="/login"
+    >
+      <YourRoutes />
+    </AuthProvider>
+  )
+}
+```
+
+```tsx TypeScript with typed user state
+import AuthProvider from 'react-auth-kit/AuthProvider'
+import createAuthStore from 'react-auth-kit/createAuthStore'
+
+interface IUser {
+  name: string
+  uuid: string
+}
+
+const store = createAuthStore<IUser>('cookie', {
+  authName: '_auth',
+  cookieDomain: window.location.hostname,
+  cookieSecure: window.location.protocol === 'https:',
+})
+
+export default function App() {
+  return (
+    <AuthProvider store={store}>
+      <YourRoutes />
+    </AuthProvider>
+  )
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  `AuthProvider` must be your topmost component. Placing it below your router or other providers will cause hooks to throw `AuthKitProviderMissingError` because they cannot find the context.
+</Warning>
+
+<Note>
+  When a `refresh` function is attached to the store via `createAuthStore`, `AuthProvider` automatically wraps your children in the internal `Refresh` engine that periodically calls your `refreshApiCallback`.
+</Note>
